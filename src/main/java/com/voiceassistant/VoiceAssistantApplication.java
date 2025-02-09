@@ -1,11 +1,11 @@
 package com.voiceassistant;
 
-import io.quarkus.runtime.Quarkus;
-import io.quarkus.runtime.annotations.QuarkusMain;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@QuarkusMain
+@SpringBootApplication
 public class VoiceAssistantApplication {
     public static void main(String[] args) {
-        Quarkus.run(args);
+        SpringApplication.run(VoiceAssistantApplication.class, args);
     }
 }

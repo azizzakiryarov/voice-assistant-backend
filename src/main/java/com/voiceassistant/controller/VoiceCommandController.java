@@ -1,22 +1,24 @@
 package com.voiceassistant.controller;
 
 import com.voiceassistant.model.VoiceCommand;
-import com.voiceassistant.service.OpenAIService;
-import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import com.voiceassistant.service.CommandProcessorService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-@Path("/api/voice")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
+@RestController
+@RequestMapping("/api/voice")
+@RequiredArgsConstructor
 public class VoiceCommandController {
+    private final CommandProcessorService commandProcessor;
 
-    private OpenAIService openAIService;
-
-
-    @POST
-    public Response processVoiceCommand(VoiceCommand command) {
-        return openAIService.processCommand(command);
+    @PostMapping
+    public ResponseEntity<?> processVoiceCommand(@RequestBody VoiceCommand command) {
+        try {
+            commandProcessor.processCommand(command.getText());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
