@@ -2,7 +2,7 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/voiceassistant
-    username: ${DB_USER:admin}
+    username: ${DB_USER:azizzakiryarov}
     password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
 
@@ -15,19 +15,21 @@ spring:
       hibernate:
         format_sql: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-  
-  # OpenAI
-openai:
-  api:
-    key: ${OPENAI_API_KEY:your-api-key-here}
-  
-  # Server
-server:
-  port: 8080
-  
-  # CORS
+
+# CORS
   web:
     cors:
-      allowed-origins: *
-      allowed-methods: GET,POST,PUT,DELETE
-      allowed-headers: *
+      allowed-origins: '*'
+      allowed-methods: 'GET,POST,PUT,DELETE'
+      allowed-headers: '*'
+# OpenAI
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o
+
+  # Server
+server:
+  port: 8081
