@@ -12,7 +12,19 @@ public class Meeting {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String title;
-    private LocalDateTime dateTime;
-    private Integer duration;
+    private LocalDateTime startTimestamp;
+    private LocalDateTime endTimestamp;
+    @OneToMany(cascade = CascadeType.ALL)
     private List<Participants> participants;
 }
+
+/*
+{
+  "type" : "MEETING",
+  "details" : {
+    "date" : "1 april",
+    "start_time" : "10:00",
+    "end_time" : "17:00",
+    "attendees" : [ "zakiryarov@hotmail.com" ]
+  }
+}**/
