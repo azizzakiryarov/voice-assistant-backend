@@ -2,7 +2,8 @@ package com.voiceassistant.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.time.LocalDateTime;
+
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -12,19 +13,8 @@ public class Meeting {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String title;
-    private LocalDateTime startTimestamp;
-    private LocalDateTime endTimestamp;
+    private LocalDate startTimestamp;
+    private LocalDate endTimestamp;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Participants> participants;
 }
-
-/*
-{
-  "type" : "MEETING",
-  "details" : {
-    "date" : "1 april",
-    "start_time" : "10:00",
-    "end_time" : "17:00",
-    "attendees" : [ "zakiryarov@hotmail.com" ]
-  }
-}**/
