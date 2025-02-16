@@ -1,6 +1,8 @@
 package com.voiceassistant.service;
 
 import com.voiceassistant.exception.AudioTranslationException;
+import com.voiceassistant.integration.google.service.GoogleCalendarService;
+import com.voiceassistant.mapper.EventMapper;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.MeetingRepository;
@@ -15,28 +17,32 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
+import java.util.List;
 
 @Service
 public class CommandProcessorService {
 
     private final OpenAIService openAIService;
+    private final GoogleCalendarService googleCalendarService;
     private final TodoRepository todoRepository;
     private final MeetingRepository meetingRepository;
     private final String apiKey;
 
     public CommandProcessorService(
             OpenAIService openAIService,
+            GoogleCalendarService googleCalendarService,
             TodoRepository todoRepository,
             MeetingRepository meetingRepository,
             @Value("${spring.ai.openai.api-key}") String apiKey
     ) {
         this.openAIService = openAIService;
+        this.googleCalendarService = googleCalendarService;
         this.todoRepository = todoRepository;
         this.meetingRepository = meetingRepository;
         this.apiKey = apiKey;
     }
 
-    public void processCommand(String text) {
+    public void processCommand(String text) throws IOException {
 
         Object analysis = openAIService.analyzeCommand(text);
 
@@ -44,6 +50,7 @@ public class CommandProcessorService {
             todoRepository.save((TodoItem) analysis);
         } else if (analysis instanceof Meeting) {
             meetingRepository.save((Meeting) analysis);
+            googleCalendarService.createEvent(EventMapper.mapMeetingToEvent((Meeting) analysis));
         }
     }
 
@@ -78,5 +85,9 @@ public class CommandProcessorService {
         } else {
             throw new AudioTranslationException("Failed to translate audio. Response: " + response.getBody());
         }
+    }
+
+    public List<TodoItem> getTodos() {
+        return todoRepository.findAll();
     }
 }

@@ -33,3 +33,10 @@ spring:
   # Server
 server:
   port: 8081
+
+google:
+  calendar:
+    client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
+    client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
+    application-name: voice-assistent-client
+    tokens-directory: tokens

@@ -1,5 +1,6 @@
 package com.voiceassistant.controller;
 
+import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.model.VoiceCommand;
 import com.voiceassistant.service.CommandProcessorService;
 import lombok.RequiredArgsConstructor;
@@ -7,10 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/voice-assistent")
 @RequiredArgsConstructor
 public class VoiceCommandController {
+
     private final CommandProcessorService commandProcessor;
 
     @PostMapping("/text")
@@ -32,5 +36,10 @@ public class VoiceCommandController {
             e.printStackTrace();
             return ResponseEntity.status(500).body("An error occurred: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/todos")
+    public ResponseEntity<List<TodoItem>> getTodos() {
+        return ResponseEntity.ok(commandProcessor.getTodos());
     }
 }
