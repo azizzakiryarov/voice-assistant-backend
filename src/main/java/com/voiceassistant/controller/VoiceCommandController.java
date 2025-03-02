@@ -17,6 +17,7 @@ public class VoiceCommandController {
 
     private final CommandProcessorService commandProcessor;
 
+    @CrossOrigin("*")
     @PostMapping("/text")
     public ResponseEntity<String> processVoiceCommand(@RequestBody VoiceCommand command) {
         try {
@@ -26,14 +27,13 @@ public class VoiceCommandController {
             return ResponseEntity.status(500).body("An error occurred: " + e);
         }
     }
-
+    @CrossOrigin("*")
     @PostMapping("/voice")
     public ResponseEntity<String> translateAndSave(@RequestParam("file") MultipartFile file) {
         try {
             commandProcessor.translateAndSave(file);
             return ResponseEntity.ok("Translation and save successful: " + file.getOriginalFilename());
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(500).body("An error occurred: " + e.getMessage());
         }
     }
