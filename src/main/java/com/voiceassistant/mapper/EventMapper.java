@@ -6,6 +6,7 @@ import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ import java.util.List;
 
 public class EventMapper {
 
-    public static Event mapMeetingToEvent(Meeting meeting){
+    public static Event mapMeetingToEvent(Meeting meeting) {
         Event newEvent = new Event();
         newEvent.setSummary(meeting.getTitle());
 

@@ -4,12 +4,15 @@ import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.Events;
+import groovy.util.logging.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.List;
 
+@lombok.extern.slf4j.Slf4j
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleCalendarService {
@@ -29,8 +32,8 @@ public class GoogleCalendarService {
 
     public Event createEvent(Event event) throws IOException {
         Event executed = calendarService.events().insert("primary", event).execute();
-        System.out.println(executed.getSummary());
-        System.out.println(executed.getHtmlLink());
+        log.info("Event created: {}", executed.getSummary());
+        log.info("Event link: {}", executed.getHtmlLink());
         return executed;
     }
 

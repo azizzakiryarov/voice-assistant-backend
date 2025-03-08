@@ -18,14 +18,14 @@ public class OpenAIService {
 
         if (text.contains("TODO".toLowerCase()) || text.contains("to-do".toLowerCase())) {
             return chatClient.prompt()
-                .user("Analyze this command and return JSON with type (TODO or MEETING) and details: " + text)
-                .call()
-                .entity(TodoItem.class);
+                    .user("Analyze this command and return JSON with type (TODO or MEETING) and details: " + text)
+                    .call()
+                    .entity(TodoItem.class);
         } else {
             return chatClient.prompt()
-                .user("Analyze this command and return JSON with type (TODO or MEETING) and details: " + text)
-                .call()
-                .entity(Meeting.class);
+                    .user("Analyze this command and return JSON with type (TODO or MEETING) and details: " + text)
+                    .call()
+                    .entity(Meeting.class);
         }
     }
 }
