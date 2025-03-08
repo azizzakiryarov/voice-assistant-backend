@@ -16,7 +16,7 @@ public class OpenAIService {
 
     public Object analyzeCommand(String text) {
 
-        if (text.contains("TODO".toLowerCase())) {
+        if (text.contains("TODO".toLowerCase()) || text.contains("to-do".toLowerCase())) {
             return chatClient.prompt()
                 .user("Analyze this command and return JSON with type (TODO or MEETING) and details: " + text)
                 .call()
