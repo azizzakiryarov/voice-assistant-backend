@@ -17,29 +17,25 @@ public class VoiceCommandController {
 
     private final CommandProcessorService commandProcessor;
 
-    @CrossOrigin("*")
     @PostMapping("/text")
     public ResponseEntity<String> processVoiceCommand(@RequestBody VoiceCommand command) {
         try {
-            commandProcessor.processCommand(command.getText());
-            return ResponseEntity.ok("Your text message has been processed");
+            ResponseEntity<String> processedCommand = commandProcessor.processCommand(command.getText());
+            return ResponseEntity.ok("Your text message has been processed" + processedCommand);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("An error occurred: " + e);
         }
     }
-    @CrossOrigin("*")
+
     @PostMapping("/voice")
     public ResponseEntity<String> translateAndSave(@RequestParam("file") MultipartFile file) {
         try {
-            commandProcessor.translateAndSave(file);
-            return ResponseEntity.ok("Translation and save successful: " + file.getOriginalFilename());
+            ResponseEntity<String> response = commandProcessor.translateAndSave(file);
+            return ResponseEntity.ok("Translation : " + response + " and save successful: " + file.getOriginalFilename());
         } catch (Exception e) {
             return ResponseEntity.status(500).body("An error occurred: " + e.getMessage());
         }
     }
 
-    @GetMapping("/todos")
-    public ResponseEntity<List<TodoItem>> getTodos() {
-        return ResponseEntity.ok(commandProcessor.getTodos());
-    }
+
 }
