@@ -1,21 +1,14 @@
 package com.voiceassistant.service;
 
-import com.voiceassistant.model.TodoItem;
-import com.voiceassistant.repository.TodoRepository;
-import org.springframework.stereotype.Service;
+import com.voiceassistant.dto.TodoItemRequestDTO;
+import com.voiceassistant.dto.TodoItemResponseDTO;
 
 import java.util.List;
 
-@Service
-public class TodoItemService {
-
-    private final TodoRepository todoRepository;
-
-    public TodoItemService(TodoRepository todoRepository) {
-        this.todoRepository = todoRepository;
-    }
-
-    public List<TodoItem> getTodos() {
-        return todoRepository.findAll();
-    }
+public interface TodoItemService {
+    TodoItemResponseDTO createTodoItem(TodoItemRequestDTO todoItemRequestDTO);
+    TodoItemResponseDTO getTodoItemById(Long id);
+    List<TodoItemResponseDTO> getAllTodoItems();
+    TodoItemResponseDTO updateTodoItem(Long id, TodoItemRequestDTO todoItemRequestDTO);
+    void deleteTodoItem(Long id);
 }
