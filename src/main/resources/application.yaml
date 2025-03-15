@@ -2,8 +2,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/voiceassistant
-    username: ${DB_USER:azizzakiryarov}
-    password: ${DB_PASSWORD:password}
+    username: ${POSTGRES_USER:azizzakiryarov}
+    password: ${POSTGRES_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
 
 # JPA/Hibernate
