@@ -1,10 +1,16 @@
 # Database configuration
 spring:
   datasource:
-    url: {POSTGRES_DATABASE_URL:jdbc:postgresql://localhost:5432/voiceassistant}
+    url: jdbc:postgresql://localhost:5432/voiceassistant
     username: ${POSTGRES_USER:azizzakiryarov}
     password: ${POSTGRES_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 # JPA/Hibernate
   jpa:
@@ -41,3 +47,5 @@ web:
     allowed-origins: 'http://localhost:5173/'
     allowed-methods: 'GET,POST,PUT,DELETE'
     allowed-headers: 'Authorization,Content-Type,X-Requested-With'
+
+

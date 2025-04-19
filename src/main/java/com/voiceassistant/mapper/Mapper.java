@@ -1,9 +1,13 @@
 package com.voiceassistant.mapper;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
+import com.voiceassistant.exception.AudioTranslationException;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
 
@@ -13,9 +17,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class EventMapper {
+public class Mapper {
 
-    public static Event mapMeetingToEvent(Meeting meeting) {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public static Event mapMeetingToEvent(Meeting meeting, String email) {
         Event newEvent = new Event();
         newEvent.setSummary(meeting.getTitle());
 
@@ -32,11 +38,8 @@ public class EventMapper {
 
         // Add attendees
         List<EventAttendee> attendees = new ArrayList<>();
-        for (Participants participant : meeting.getParticipants()) {
-            var participantEmail = participant.getEmail();
-            new EventAttendee().setEmail(participantEmail);
-            attendees.add(new EventAttendee().setEmail(participantEmail));
-        }
+        new EventAttendee().setEmail(email);
+        attendees.add(new EventAttendee().setEmail(email));
         newEvent.setAttendees(attendees);
         return newEvent;
     }
@@ -44,5 +47,14 @@ public class EventMapper {
     public static DateTime convertLocalDateTimeToGoogleDateTime(LocalDateTime localDateTime) {
         Date date = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
         return new DateTime(date);
+    }
+
+    public static String extractTranslatedText(String responseBody) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(responseBody);
+            return jsonNode.path("text").asText();
+        } catch (JsonProcessingException e) {
+            throw new AudioTranslationException("Failed to parse translation response", e);
+        }
     }
 }

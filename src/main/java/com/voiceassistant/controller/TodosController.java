@@ -12,7 +12,7 @@ import javax.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/todos")
+@RequestMapping("/api/voice-assistent")
 @RequiredArgsConstructor
 public class TodosController {
 
