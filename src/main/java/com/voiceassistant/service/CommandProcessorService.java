@@ -77,13 +77,12 @@ public class CommandProcessorService {
         if (isMeetingInvalid(meeting)) {
             return ResponseEntity.status(400).body("Meeting details are incomplete");
         }
-
-        meetingRepository.save(meeting);
         try {
             googleCalendarService.createEvent(EventMapper.mapMeetingToEvent(meeting));
         } catch (IOException e) {
-            return ResponseEntity.status(500).body("Failed to save meeting to Google Calendar: " + e.getMessage());
+            return ResponseEntity.status(400).body("Failed to save meeting to Google Calendar: " + e.getMessage());
         }
+        meetingRepository.save(meeting);
 
         return ResponseEntity.ok("Meeting saved successfully and added to Google Calendar");
     }
