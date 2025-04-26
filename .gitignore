@@ -43,3 +43,6 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Google Cloud Service Account Key
+src/main/resources/voice-assistent-451109-4acde9fca270.json
