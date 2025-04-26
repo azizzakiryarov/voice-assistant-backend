@@ -1,14 +1,16 @@
 package com.voiceassistant.controller;
 
 import com.voiceassistant.dto.ConfirmEmailRequestDTO;
+import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TranscriptionResponseDTO;
-import com.voiceassistant.model.VoiceCommand;
 import com.voiceassistant.service.CommandProcessorService;
 import com.voiceassistant.service.TranscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/api/voice-assistent")
@@ -20,9 +22,9 @@ public class TranscriptionController {
     private final CommandProcessorService  commandProcessorService;
 
     @PostMapping("/text")
-    public ResponseEntity<String> processVoiceCommand(@RequestBody VoiceCommand command) {
+    public ResponseEntity<String> processTextCommand(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         try {
-            ResponseEntity<String> processedCommand = commandProcessorService.processCommand(command.getText(), null);
+            ResponseEntity<String> processedCommand = commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), null);
             return ResponseEntity.ok("Your text message has been processed" + processedCommand);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("An error occurred: " + e);
