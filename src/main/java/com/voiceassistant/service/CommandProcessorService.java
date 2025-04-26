@@ -11,7 +11,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CommandProcessorService {
@@ -56,13 +56,8 @@ public class CommandProcessorService {
     private ResponseEntity<String> processMeeting(Meeting meeting, String email) {
 
         if(!email.isEmpty()) {
-            List<Participants> existedParticipant = meeting.getParticipants();
-            for (Participants participant : existedParticipant) {
-                if (participant.getEmail().equals(email)) {
-                    return ResponseEntity.status(400).body("Participant with this email already exists");
-                }
-                participant.setEmail(email);
-            }
+            Optional<Participants> participants = meeting.getParticipants().stream().findFirst();
+            participants.ifPresent(value -> value.setEmail(email));
         }
 
         if (isMeetingInvalid(meeting)) {
