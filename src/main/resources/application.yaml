@@ -35,11 +35,13 @@ server:
   port: 8081
 
 google:
+  # Sökväg till din service account nyckel-fil
+  service-account:
+    key-file: classpath:voice-assistent-451109-4acde9fca270.json
+  # Kalender-ID: använd primary för användarens egen kalender
+  # Eller använd kalender-ID för en delad kalender
   calendar:
-    client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
-    client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET}
-    application-name: voice-assistent-client
-    tokens-directory: tokens
+    calendar-id: primary
 
 # CORS
 web:

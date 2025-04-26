@@ -5,23 +5,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.Event;
-import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.voiceassistant.exception.AudioTranslationException;
 import com.voiceassistant.model.Meeting;
-import com.voiceassistant.model.Participants;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 public class Mapper {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static Event mapMeetingToEvent(Meeting meeting, String email) {
+    public static Event mapMeetingToEvent(Meeting meeting) {
         Event newEvent = new Event();
         newEvent.setSummary(meeting.getTitle());
 
@@ -36,11 +32,6 @@ public class Mapper {
                 .setTimeZone("Europe/Stockholm");
         newEvent.setEnd(end);
 
-        // Add attendees
-        List<EventAttendee> attendees = new ArrayList<>();
-        new EventAttendee().setEmail(email);
-        attendees.add(new EventAttendee().setEmail(email));
-        newEvent.setAttendees(attendees);
         return newEvent;
     }
 
