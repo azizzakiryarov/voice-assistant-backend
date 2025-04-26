@@ -18,29 +18,29 @@ public class TodosController {
 
     private final TodoItemServiceImpl todoItemServiceImpl;
 
-    @GetMapping()
+    @GetMapping("/todos")
     public ResponseEntity<List<TodoItemResponseDTO>> getAllTodoItems() {
         return ResponseEntity.ok(todoItemServiceImpl.getAllTodoItems());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/todos/{id}")
     public ResponseEntity<TodoItemResponseDTO> getTodoById(@PathVariable Long id) {
         return ResponseEntity.ok(todoItemServiceImpl.getTodoItemById(id));
     }
 
-    @PostMapping
+    @PostMapping("/todos")
     public ResponseEntity<TodoItemResponseDTO> createTodoItem(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         TodoItemResponseDTO createdUser = todoItemServiceImpl.createTodoItem(todoItemRequestDTO);
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/todos/{id}")
     public ResponseEntity<TodoItemResponseDTO> updateTodoItem(@PathVariable Long id, @Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         TodoItemResponseDTO updatedUser = todoItemServiceImpl.updateTodoItem(id, todoItemRequestDTO);
         return ResponseEntity.ok(updatedUser);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/todos/{id}")
     public ResponseEntity<Void> deleteTodoItem(@PathVariable Long id) {
         todoItemServiceImpl.deleteTodoItem(id);
         return ResponseEntity.noContent().build();

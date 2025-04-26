@@ -52,11 +52,7 @@ public class TodoItemServiceImpl implements TodoItemService {
     public TodoItemResponseDTO updateTodoItem(Long id, TodoItemRequestDTO todoItemRequestDTO) {
         TodoItem existingTodoItem = todoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(TODO_ITEM_NOT_FOUND_WITH_ID + id));
-
-        // Update fields
-        modelMapper.map(todoItemRequestDTO, existingTodoItem);
-        existingTodoItem.setId(id); // Ensure ID doesn't change
-
+        existingTodoItem.setCompleted(todoItemRequestDTO.isCompleted());
         TodoItem updatedTodoItem = todoRepository.save(existingTodoItem);
         return modelMapper.map(updatedTodoItem, TodoItemResponseDTO.class);
     }

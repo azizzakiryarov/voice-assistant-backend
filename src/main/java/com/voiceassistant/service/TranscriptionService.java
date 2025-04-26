@@ -81,11 +81,30 @@ public class TranscriptionService {
     }
 
     private String cleanEmailAddress(String text) {
-        return text
-                .replaceAll("(?i)\\s+dot\\s+", ".")   // "dot" -> "."
-                .replaceAll("(?i)\\s+at\\s+", "@")     // "at" -> "@"
-                .replaceAll("(?i)\\s+underscore\\s+", "_") // optional: "underscore" -> "_"
-                .replaceAll("\\s+", " ")              // rensa överflödiga mellanslag
-                .trim();
+        if (text == null) return "";
+
+        // Steg 1: Sänk till gemener
+        String cleaned = text.toLowerCase();
+
+        // Steg 2: Ersätt typiska varianter av "at"
+        cleaned = cleaned
+                .replaceAll("\\b(snabel-?a|at)\\b", "@");
+
+        // Steg 3: Ersätt typiska varianter av "dot" eller "punkt"
+        cleaned = cleaned
+                .replaceAll("\\b(dot|punkt|dotcom|dot net|dot org)\\b", ".");
+
+        // Steg 4: Ersätt typiska varianter av "underscore" till "_"
+        cleaned = cleaned
+                .replaceAll("\\b(underscore|understreck)\\b", "_");
+
+        // Steg 5: Rensa upp onödiga mellanslag runt punkter och snabel-a
+        cleaned = cleaned
+                .replaceAll("\\s*@\\s*", "@")
+                .replaceAll("\\s*\\.\\s*", ".")
+                .replaceAll("\\s*_\\s*", "_");
+
+        // Steg 6: Återställ originaltext med e-posträttning på plats
+        return cleaned.trim();
     }
 }
