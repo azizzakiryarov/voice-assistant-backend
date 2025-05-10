@@ -44,7 +44,7 @@ public class TranscriptionController {
     @PostMapping("/confirm-email")
     public ResponseEntity<?> confirmEmail(@RequestBody ConfirmEmailRequestDTO request) {
         try {
-            commandProcessorService.processConfirmedEmail(request.getEmail(), request.getTranscription());
+            commandProcessorService.processConfirmedEmail(request.getTranscription(), request.getEmail());
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
