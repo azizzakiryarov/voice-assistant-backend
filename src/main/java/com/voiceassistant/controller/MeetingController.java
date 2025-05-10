@@ -12,35 +12,35 @@ import javax.validation.Valid;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/meetings")
+@RequestMapping("/api/voice-assistent")
 @RequiredArgsConstructor
 public class MeetingController {
 
     private final MeetingServiceImpl meetingServiceImpl;
 
-    @GetMapping
+    @GetMapping("/meetings")
     public ResponseEntity<List<MeetingResponseDTO>> getMeetings() {
         return ResponseEntity.ok(meetingServiceImpl.getAllMeetings());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/meetings/{id}")
     public ResponseEntity<MeetingResponseDTO> getMeetingById(@PathVariable Long id) {
         return ResponseEntity.ok(meetingServiceImpl.getMeetingById(id));
     }
 
-    @PostMapping
+    @PostMapping("/meetings")
     public ResponseEntity<MeetingResponseDTO> createMeeting(@Valid @RequestBody MeetingRequestDTO meetingRequestDTO) {
         MeetingResponseDTO createdMeeting = meetingServiceImpl.createMeeting(meetingRequestDTO);
         return new ResponseEntity<>(createdMeeting, HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/meetings/{id}")
     public ResponseEntity<MeetingResponseDTO> updateMeeting(@PathVariable Long id, @Valid @RequestBody MeetingRequestDTO meetingRequestDTO) {
         MeetingResponseDTO updatedMeeting = meetingServiceImpl.updateMeeting(id, meetingRequestDTO);
         return ResponseEntity.ok(updatedMeeting);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/meetings/{id}")
     public ResponseEntity<Void> deleteMeeting(@PathVariable Long id) {
         meetingServiceImpl.deleteMeeting(id);
         return ResponseEntity.noContent().build();
