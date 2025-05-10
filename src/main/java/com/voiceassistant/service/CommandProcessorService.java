@@ -11,7 +11,10 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
+
+import static com.voiceassistant.service.TranscriptionService.extractEmailAddress;
 
 @Service
 public class CommandProcessorService {
@@ -39,7 +42,11 @@ public class CommandProcessorService {
         if (analysis instanceof TodoItem todoItem) {
             return processTodoItem(todoItem);
         } else if (analysis instanceof Meeting meeting) {
-            return processMeeting(meeting, email);
+            String extractedEmail = extractEmailAddress(text);
+            if (email == null || email.isEmpty()) {
+                email = extractedEmail;
+            }
+            return processMeeting(meeting, Objects.requireNonNull(email));
         }
 
         return ResponseEntity.status(400).body("Unknown command type");
@@ -73,7 +80,7 @@ public class CommandProcessorService {
         return ResponseEntity.ok("Meeting saved successfully and added to Google Calendar");
     }
 
-    public void processConfirmedEmail(String email, String transcription) {
+    public void processConfirmedEmail(String transcription, String email) {
         processCommand(transcription, email);
     }
 
