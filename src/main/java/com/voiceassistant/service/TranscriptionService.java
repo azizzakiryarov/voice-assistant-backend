@@ -58,17 +58,12 @@ public class TranscriptionService {
             ResponseEntity<String> response = restTemplate.postForEntity(OPENAI_API_URL, requestEntity, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
-                String translatedText = extractTranslatedText(response.getBody());
-                // Extrahera e-postadress från transkriberingen
                 TranscriptionResponseDTO transcriptionResponseDTO = new TranscriptionResponseDTO();
-                String cleanedEmailAddress = cleanEmailAddress(translatedText);
-                transcriptionResponseDTO.setTranscription(cleanedEmailAddress);
-                Matcher matcher = EMAIL_PATTERN.matcher(cleanedEmailAddress);
-                if (matcher.find()) {
-                    String email = matcher.group();
-                    transcriptionResponseDTO.setExtractedEmail(email);
-                }
-
+                String translatedText = extractTranslatedText(response.getBody());
+                String translatedTextWithCleanedEmailAddress = cleanEmailAddress(translatedText);
+                transcriptionResponseDTO.setTranscription(translatedTextWithCleanedEmailAddress);
+                String extractedEmailAddressForVerification = extractEmailAddress(translatedTextWithCleanedEmailAddress);
+                transcriptionResponseDTO.setExtractedEmail(extractedEmailAddressForVerification);
                 return transcriptionResponseDTO;
             } else {
                 throw new AudioTranslationException("Failed to translate audio. Status: " + response.getStatusCode() + ", Response: " + response.getBody());
@@ -78,6 +73,16 @@ public class TranscriptionService {
         } catch (RestClientException e) {
             throw new AudioTranslationException("Error calling translation API", e);
         }
+
+    }
+
+    // Extrahera e-postadress från transkriberingen
+    public static String extractEmailAddress(String text) {
+        Matcher matcher = EMAIL_PATTERN.matcher(text);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+        return null;
     }
 
     private String cleanEmailAddress(String text) {
