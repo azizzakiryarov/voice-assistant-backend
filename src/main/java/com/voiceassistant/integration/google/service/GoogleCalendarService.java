@@ -30,11 +30,10 @@ public class GoogleCalendarService {
         return events.getItems();
     }
 
-    public Event createEvent(Event event) throws IOException {
+    public void createEvent(Event event) throws IOException {
         Event executed = calendarService.events().insert("primary", event).execute();
         log.info("Event created: {}", executed.getSummary());
         log.info("Event link: {}", executed.getHtmlLink());
-        return executed;
     }
 
     public Event updateEvent(String eventId, Event event) throws IOException {
