@@ -13,12 +13,12 @@ if [ ! -f "pom.xml" ]; then
 fi
 
 # Build the Docker image
-podman build -t azizzakiryarov/voice-assistant:latest .
+podman build -t azizzakiryarov/voice-assistant-backend:latest .
 
 # Output success message if build succeeds
 if [ $? -eq 0 ]; then
-  echo "Docker image built successfully: azizzakiryarov/voice-assistant:latest"
+  echo "Docker image built successfully: azizzakiryarov/voice-assistant-backend:latest"
 fi
 
 # Push the Docker image to Docker Hub
-podman push azizzakiryarov/voice-assistant:latest
+podman push azizzakiryarov/voice-assistant-backend:latest
