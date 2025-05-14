@@ -11,6 +11,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -35,11 +36,14 @@ public class CommandProcessorService {
         this.meetingRepository = meetingRepository;
     }
 
-    public ResponseEntity<String> processCommand(String text, String email) {
+    public ResponseEntity<String> processCommand(String text, LocalDate dueDate, String email) {
 
         Object analysis = openAIService.analyzeCommand(text);
 
         if (analysis instanceof TodoItem todoItem) {
+            if (dueDate != null) {
+                todoItem.setDueDate(dueDate);
+            }
             return processTodoItem(todoItem);
         } else if (analysis instanceof Meeting meeting) {
             String extractedEmail = extractEmailAddress(text);
@@ -62,7 +66,7 @@ public class CommandProcessorService {
 
     private ResponseEntity<String> processMeeting(Meeting meeting, String email) {
 
-        if(!email.isEmpty()) {
+        if (!email.isEmpty()) {
             Optional<Participants> participants = meeting.getParticipants().stream().findFirst();
             participants.ifPresent(value -> value.setEmail(email));
         }
@@ -81,7 +85,7 @@ public class CommandProcessorService {
     }
 
     public void processConfirmedEmail(String transcription, String email) {
-        processCommand(transcription, email);
+        processCommand(transcription, null, email);
     }
 
     private boolean isMeetingInvalid(Meeting meeting) {

@@ -24,7 +24,7 @@ public class TranscriptionController {
     @PostMapping("/text")
     public ResponseEntity<String> processTextCommand(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         try {
-            ResponseEntity<String> processedCommand = commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), null);
+            ResponseEntity<String> processedCommand = commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), todoItemRequestDTO.getDueDate(), null);
             return ResponseEntity.ok("Your text message has been processed" + processedCommand);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("An error occurred: " + e);
