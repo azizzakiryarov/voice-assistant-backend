@@ -16,8 +16,20 @@ public class OpenAIService {
     private final ChatClient chatClient;
 
     // Tydliga instruktioner för AI
-    private static final String TYPE_PROMPT =
-            "Analysera texten och returnera endast 'TODO' eller 'MEETING' baserat på vilken typ av kommando det är: ";
+    private static final String TYPE_PROMPT = """
+        Du är en AI som ska analysera en användares kommando och avgöra om det handlar om:
+        
+        1. En att-göra-uppgift ("TODO")
+        2. En mötesbokning ("MEETING")
+        
+        Returnera ENDAST orden "TODO" eller "MEETING" baserat på vad kommandot handlar om. Inget annat.
+        
+        Exempel:
+        - "Lägg till att köpa mjölk imorgon" → TODO
+        - "Boka ett möte med Anna på måndag klockan 10" → MEETING
+        
+        Användarkommandot är: 
+        """;
 
     private static final String DETAILS_PROMPT =
             "Analysera detta kommando och returnera JSON med detaljer: ";
