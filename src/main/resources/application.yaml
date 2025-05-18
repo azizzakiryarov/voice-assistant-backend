@@ -44,6 +44,6 @@ google:
 # CORS
 web:
   cors:
-    allowed-origins: 'http://192.168.50.79:80/'
+    allowed-origins: '*'
     allowed-methods: 'GET,POST,PUT,DELETE'
     allowed-headers: 'Authorization,Content-Type,X-Requested-With'
