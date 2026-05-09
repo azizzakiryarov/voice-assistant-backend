@@ -30,6 +30,9 @@ spring:
         options:
           model: llama3.2:1b
           temperature: 0.3
+transcription:
+  whisper:
+    base-url: http://whisper:9000
 
   # Server
 server:
