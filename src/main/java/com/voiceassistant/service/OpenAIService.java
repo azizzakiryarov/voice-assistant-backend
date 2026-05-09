@@ -2,13 +2,12 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.TodoItem;
-import groovy.util.logging.Slf4j;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
-@lombok.extern.slf4j.Slf4j
 @Slf4j
 @Service
 public class OpenAIService {
