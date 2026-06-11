@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.voiceassistant.service.TranscriptionService.extractEmailAddress;
@@ -36,7 +36,7 @@ public class CommandProcessorService {
         this.meetingRepository = meetingRepository;
     }
 
-    public ResponseEntity<String> processCommand(String text, LocalDate dueDate, String email) {
+    public ResponseEntity<Object> processCommand(String text, LocalDate dueDate, String email) {
 
         Object analysis = openAIService.analyzeCommand(text);
 
@@ -50,42 +50,42 @@ public class CommandProcessorService {
             if (email == null || email.isEmpty()) {
                 email = extractedEmail;
             }
-            return processMeeting(meeting, Objects.requireNonNull(email));
+            return processMeeting(meeting, email);
         }
 
-        return ResponseEntity.status(400).body("Unknown command type");
+        return ResponseEntity.badRequest().body(Map.of("message", "Unknown command type"));
     }
 
-    private ResponseEntity<String> processTodoItem(TodoItem todoItem) {
+    private ResponseEntity<Object> processTodoItem(TodoItem todoItem) {
         if (todoItem.getDescription() == null || todoItem.getDescription().isEmpty()) {
-            return ResponseEntity.status(400).body("Todo details are incomplete");
+            return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
         }
-        todoRepository.save(todoItem);
-        return ResponseEntity.ok("Todo saved successfully");
+        TodoItem savedTodoItem = todoRepository.save(todoItem);
+        return ResponseEntity.ok(savedTodoItem);
     }
 
-    private ResponseEntity<String> processMeeting(Meeting meeting, String email) {
+    private ResponseEntity<Object> processMeeting(Meeting meeting, String email) {
 
-        if (!email.isEmpty()) {
+        if (email != null && !email.isBlank() && meeting.getParticipants() != null) {
             Optional<Participants> participants = meeting.getParticipants().stream().findFirst();
             participants.ifPresent(value -> value.setEmail(email));
         }
 
         if (isMeetingInvalid(meeting)) {
-            return ResponseEntity.status(400).body("Meeting details are incomplete");
+            return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
         }
         try {
             googleCalendarService.createEvent(Mapper.mapMeetingToEvent(meeting, email));
         } catch (IOException e) {
-            return ResponseEntity.status(400).body("Failed to save meeting to Google Calendar: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message", "Failed to save meeting to Google Calendar: " + e.getMessage()));
         }
-        meetingRepository.save(meeting);
+        Meeting savedMeeting = meetingRepository.save(meeting);
 
-        return ResponseEntity.ok("Meeting saved successfully and added to Google Calendar");
+        return ResponseEntity.ok(savedMeeting);
     }
 
-    public void processConfirmedEmail(String transcription, String email) {
-        processCommand(transcription, null, email);
+    public ResponseEntity<Object> processConfirmedEmail(String transcription, String email) {
+        return processCommand(transcription, null, email);
     }
 
     private boolean isMeetingInvalid(Meeting meeting) {

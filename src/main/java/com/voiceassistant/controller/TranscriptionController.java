@@ -22,12 +22,11 @@ public class TranscriptionController {
     private final CommandProcessorService  commandProcessorService;
 
     @PostMapping("/text")
-    public ResponseEntity<String> processTextCommand(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
+    public ResponseEntity<?> processTextCommand(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         try {
-            ResponseEntity<String> processedCommand = commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), todoItemRequestDTO.getDueDate(), null);
-            return ResponseEntity.ok("Your text message has been processed" + processedCommand);
+            return commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), todoItemRequestDTO.getDueDate(), null);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("An error occurred: " + e);
+            return ResponseEntity.status(500).body(java.util.Map.of("message", "An error occurred: " + e.getMessage()));
         }
     }
 
@@ -44,8 +43,7 @@ public class TranscriptionController {
     @PostMapping("/confirm-email")
     public ResponseEntity<?> confirmEmail(@RequestBody ConfirmEmailRequestDTO request) {
         try {
-            commandProcessorService.processConfirmedEmail(request.getTranscription(), request.getEmail());
-            return ResponseEntity.ok().build();
+            return commandProcessorService.processConfirmedEmail(request.getTranscription(), request.getEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
