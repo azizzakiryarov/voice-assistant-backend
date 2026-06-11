@@ -8,6 +8,7 @@ import com.voiceassistant.repository.TodoRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -27,6 +28,9 @@ public class TodoItemServiceImpl implements TodoItemService {
         TodoItem todoItem = modelMapper.map(todoItemRequestDTO, TodoItem.class);
         if (todoItem.getDescription() == null) {
             throw new IllegalArgumentException("Title are required fields");
+        }
+        if (todoItem.getDueDate() == null) {
+            todoItem.setDueDate(LocalDate.now());
         }
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return modelMapper.map(savedTodoItem, TodoItemResponseDTO.class);

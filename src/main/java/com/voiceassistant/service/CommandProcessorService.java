@@ -43,6 +43,8 @@ public class CommandProcessorService {
         if (analysis instanceof TodoItem todoItem) {
             if (dueDate != null) {
                 todoItem.setDueDate(dueDate);
+            } else if (todoItem.getDueDate() == null) {
+                todoItem.setDueDate(LocalDate.now());
             }
             return processTodoItem(todoItem);
         } else if (analysis instanceof Meeting meeting) {

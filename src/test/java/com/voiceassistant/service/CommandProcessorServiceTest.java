@@ -64,6 +64,28 @@ class CommandProcessorServiceTest {
     }
 
     @Test
+    void processCommandSetsTodayAsDueDateWhenTodoHasNoDate() {
+        String command = "Lägg till att köpa mjölk";
+
+        TodoItem analyzedTodoItem = new TodoItem();
+        analyzedTodoItem.setDescription("köpa mjölk");
+
+        TodoItem savedTodoItem = new TodoItem();
+        savedTodoItem.setId(42L);
+        savedTodoItem.setDescription("köpa mjölk");
+        savedTodoItem.setDueDate(LocalDate.now());
+
+        when(openAIService.analyzeCommand(command)).thenReturn(analyzedTodoItem);
+        when(todoRepository.save(analyzedTodoItem)).thenReturn(savedTodoItem);
+
+        ResponseEntity<Object> response = commandProcessorService.processCommand(command, null, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isSameAs(savedTodoItem);
+        assertThat(analyzedTodoItem.getDueDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
     void processCommandReturnsJsonErrorWhenAiCannotClassifyCommand() {
         String command = "Planera något";
         when(openAIService.analyzeCommand(command)).thenReturn(null);
