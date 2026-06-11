@@ -40,10 +40,10 @@ public class GoogleCalendarConfig {
     @Value("${google.calendar.tokens-directory}")
     private String tokensDirectoryPath;
 
-    @Value("${GOOGLE_CALENDAR_CLIENT_ID}")
+    @Value("${google.calendar.client-id}")
     private String clientId;
 
-    @Value("${GOOGLE_CALENDAR_CLIENT_SECRET}")
+    @Value("${google.calendar.client-secret}")
     private String clientSecret;
 
     @Bean

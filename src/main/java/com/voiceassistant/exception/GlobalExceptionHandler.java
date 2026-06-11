@@ -2,6 +2,7 @@ package com.voiceassistant.exception;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,8 +42,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(errorDetails, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatus status, WebRequest request) {
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
 
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
@@ -72,7 +74,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             this.details = details;
         }
 
-        // Getters
+        public LocalDateTime getTimestamp() {
+            return timestamp;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public String getDetails() {
+            return details;
+        }
     }
 
     public static class ValidationErrorDetails extends ErrorDetails {
@@ -83,6 +95,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             this.validationErrors = validationErrors;
         }
 
-        // Getters
+        public Map<String, String> getValidationErrors() {
+            return validationErrors;
+        }
     }
 }

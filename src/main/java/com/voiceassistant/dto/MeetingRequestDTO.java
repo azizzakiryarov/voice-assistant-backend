@@ -3,7 +3,8 @@ package com.voiceassistant.dto;
 import com.voiceassistant.model.Participants;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,9 +12,9 @@ import java.util.List;
 public class MeetingRequestDTO {
     @NotBlank(message = "title is required")
     private String title;
-    @NotBlank(message = "startTimestamp is required")
+    @NotNull(message = "startTimestamp is required")
     private LocalDateTime startTimestamp;
-    @NotBlank(message = "endTimestamp is required")
+    @NotNull(message = "endTimestamp is required")
     private LocalDateTime endTimestamp;
     private List<Participants> participants;
 }

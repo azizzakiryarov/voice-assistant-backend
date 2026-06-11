@@ -2,7 +2,7 @@ package com.voiceassistant.dto;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDate;
 
 @Data
