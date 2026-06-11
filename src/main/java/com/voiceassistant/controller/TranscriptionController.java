@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/voice-assistent")
@@ -30,13 +33,13 @@ public class TranscriptionController {
         }
     }
 
-    @PostMapping("/transcribe")
-    public ResponseEntity<TranscriptionResponseDTO> transcribeAudio(@RequestParam("file") MultipartFile audioFile) {
+    @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> transcribeAudio(@RequestParam("file") MultipartFile audioFile) {
         try {
             TranscriptionResponseDTO response = transcriptionService.transcribeAudio(audioFile);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 

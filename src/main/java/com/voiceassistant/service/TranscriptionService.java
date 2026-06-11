@@ -37,6 +37,10 @@ public class TranscriptionService {
 
     public TranscriptionResponseDTO transcribeAudio(MultipartFile audioFile) {
         try {
+            if (audioFile == null || audioFile.isEmpty()) {
+                throw new AudioTranslationException("Audio file is missing or empty");
+            }
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 

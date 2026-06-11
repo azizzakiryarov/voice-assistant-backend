@@ -32,7 +32,7 @@ spring:
           temperature: 0.3
 transcription:
   whisper:
-    base-url: http://whisper:9000
+    base-url: ${WHISPER_BASE_URL:http://localhost:9000}
 
   # Server
 server:
