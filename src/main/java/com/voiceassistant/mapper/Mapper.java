@@ -36,11 +36,11 @@ public class Mapper {
                 .setTimeZone("Europe/Stockholm");
         newEvent.setEnd(end);
 
-        // Add attendees
-        List<EventAttendee> attendees = new ArrayList<>();
-        new EventAttendee().setEmail(email);
-        attendees.add(new EventAttendee().setEmail(email));
-        newEvent.setAttendees(attendees);
+        if (email != null && !email.isBlank()) {
+            List<EventAttendee> attendees = new ArrayList<>();
+            attendees.add(new EventAttendee().setEmail(email));
+            newEvent.setAttendees(attendees);
+        }
         return newEvent;
     }
 
