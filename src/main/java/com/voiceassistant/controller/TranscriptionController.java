@@ -3,6 +3,8 @@ package com.voiceassistant.controller;
 import com.voiceassistant.dto.ConfirmEmailRequestDTO;
 import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TranscriptionResponseDTO;
+import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
+import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.service.CommandProcessorService;
 import com.voiceassistant.service.TranscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,27 @@ public class TranscriptionController {
         try {
             TranscriptionResponseDTO response = transcriptionService.transcribeAudio(audioFile);
             return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/voice-command/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> previewVoiceCommand(@RequestParam("file") MultipartFile audioFile) {
+        try {
+            TranscriptionResponseDTO transcription = transcriptionService.transcribeAudio(audioFile);
+            VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription.getTranscription());
+            preview.setExtractedEmail(transcription.getExtractedEmail());
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/voice-command/approve")
+    public ResponseEntity<?> approveVoiceCommand(@RequestBody VoiceCommandApprovalRequestDTO request) {
+        try {
+            return commandProcessorService.approveCommand(request);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

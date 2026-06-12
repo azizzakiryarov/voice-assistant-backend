@@ -1,5 +1,10 @@
 package com.voiceassistant.service;
 
+import com.voiceassistant.dto.TodoItemRequestDTO;
+import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
+import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
+import com.voiceassistant.dto.VoiceCommandPreviewDTO;
+import com.voiceassistant.dto.VoiceCommandType;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.mapper.Mapper;
 import com.voiceassistant.model.Meeting;
@@ -56,6 +61,85 @@ public class CommandProcessorService {
         }
 
         return ResponseEntity.badRequest().body(Map.of("message", "Unknown command type"));
+    }
+
+    public VoiceCommandPreviewDTO previewCommand(String transcription) {
+        VoiceCommandPreviewDTO preview = openAIService.analyzeVoiceCommand(transcription);
+        preview.setTranscription(transcription);
+        String extractedEmail = extractEmailAddress(transcription);
+        preview.setExtractedEmail(extractedEmail);
+        if (extractedEmail != null && preview.getMeeting() != null && preview.getMeeting().getParticipants() != null) {
+            preview.getMeeting().getParticipants().stream()
+                    .findFirst()
+                    .ifPresent(participant -> participant.setEmail(extractedEmail));
+        }
+        return preview;
+    }
+
+    public ResponseEntity<Object> approveCommand(VoiceCommandApprovalRequestDTO request) {
+        if (request.getType() == null || request.getType() == VoiceCommandType.UNKNOWN) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Command type is unknown"));
+        }
+
+        if (request.getType() == VoiceCommandType.TODO) {
+            return approveTodo(request.getTodo());
+        }
+
+        return approveMeeting(request.getMeeting());
+    }
+
+    private ResponseEntity<Object> approveTodo(TodoItemRequestDTO request) {
+        if (request == null || request.getDescription() == null || request.getDescription().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
+        }
+
+        TodoItem todoItem = new TodoItem();
+        todoItem.setDescription(request.getDescription());
+        todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now());
+        todoItem.setCompleted(request.isCompleted());
+
+        TodoItem saved = todoRepository.save(todoItem);
+        VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
+        response.setType(VoiceCommandType.TODO);
+        response.setSaved(saved);
+        response.setGoogleSynced(false);
+        response.setGoogleService("NONE");
+        return ResponseEntity.ok(response);
+    }
+
+    private ResponseEntity<Object> approveMeeting(com.voiceassistant.dto.MeetingRequestDTO request) {
+        if (request == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
+        }
+
+        Meeting meeting = new Meeting();
+        meeting.setTitle(request.getTitle());
+        meeting.setStartTimestamp(request.getStartTimestamp());
+        meeting.setEndTimestamp(request.getEndTimestamp());
+        meeting.setParticipants(request.getParticipants());
+
+        if (isMeetingInvalid(meeting)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
+        }
+
+        try {
+            String email = meeting.getParticipants().stream()
+                    .map(Participants::getEmail)
+                    .filter(value -> value != null && !value.isBlank())
+                    .findFirst()
+                    .orElse(null);
+            googleCalendarService.createEvent(Mapper.mapMeetingToEvent(meeting, email));
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Failed to save meeting to Google Calendar: " + e.getMessage()));
+        }
+
+        Meeting saved = meetingRepository.save(meeting);
+        VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
+        response.setType(VoiceCommandType.MEETING);
+        response.setSaved(saved);
+        response.setGoogleSynced(true);
+        response.setGoogleService("GOOGLE_CALENDAR");
+        return ResponseEntity.ok(response);
     }
 
     private ResponseEntity<Object> processTodoItem(TodoItem todoItem) {
