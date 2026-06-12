@@ -50,6 +50,7 @@ transcription:
   # Server
 server:
   port: 8081
+  forward-headers-strategy: framework
 
 google:
   calendar:
