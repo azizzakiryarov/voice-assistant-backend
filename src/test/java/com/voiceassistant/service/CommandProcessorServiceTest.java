@@ -5,6 +5,7 @@ import com.voiceassistant.dto.MeetingRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
 import com.voiceassistant.dto.VoiceCommandType;
+import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
 import com.voiceassistant.model.TodoItem;
@@ -35,7 +36,9 @@ class CommandProcessorServiceTest {
     private GoogleCalendarService googleCalendarService;
     private TodoRepository todoRepository;
     private MeetingRepository meetingRepository;
+    private AppUserService appUserService;
     private CommandProcessorService commandProcessorService;
+    private AppUser currentUser;
 
     @BeforeEach
     void setUp() {
@@ -43,11 +46,18 @@ class CommandProcessorServiceTest {
         googleCalendarService = mock(GoogleCalendarService.class);
         todoRepository = mock(TodoRepository.class);
         meetingRepository = mock(MeetingRepository.class);
+        appUserService = mock(AppUserService.class);
+        currentUser = new AppUser();
+        currentUser.setId(5L);
+        currentUser.setEmail("aziz@example.com");
+        currentUser.setGoogleSubject("google-subject");
+        when(appUserService.getCurrentUser()).thenReturn(currentUser);
         commandProcessorService = new CommandProcessorService(
                 openAIService,
                 googleCalendarService,
                 todoRepository,
-                meetingRepository);
+                meetingRepository,
+                appUserService);
     }
 
     @Test
@@ -72,6 +82,7 @@ class CommandProcessorServiceTest {
         assertThat(response.getBody()).isSameAs(savedTodoItem);
         verify(todoRepository).save(analyzedTodoItem);
         assertThat(analyzedTodoItem.getDueDate()).isEqualTo(dueDate);
+        assertThat(analyzedTodoItem.getOwner()).isSameAs(currentUser);
     }
 
     @Test
@@ -94,6 +105,7 @@ class CommandProcessorServiceTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isSameAs(savedTodoItem);
         assertThat(analyzedTodoItem.getDueDate()).isEqualTo(LocalDate.now());
+        assertThat(analyzedTodoItem.getOwner()).isSameAs(currentUser);
     }
 
     @Test

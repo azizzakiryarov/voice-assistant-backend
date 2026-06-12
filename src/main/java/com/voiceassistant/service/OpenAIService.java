@@ -140,6 +140,13 @@ public class OpenAIService {
             if (preview.getType() == null) {
                 preview.setType(VoiceCommandType.UNKNOWN);
             }
+            if (preview.getType() == VoiceCommandType.MEETING && preview.getMeeting() == null) {
+                preview.setType(VoiceCommandType.UNKNOWN);
+                preview.setMessage("Kunde inte extrahera mötesdetaljer");
+            } else if (preview.getType() == VoiceCommandType.TODO && preview.getTodo() == null) {
+                preview.setType(VoiceCommandType.UNKNOWN);
+                preview.setMessage("Kunde inte extrahera att göra-detaljer");
+            }
             return preview;
         } catch (Exception e) {
             log.warn("Fel vid strukturerad analys av röstkommando: {}", e.getMessage());

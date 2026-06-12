@@ -1,5 +1,6 @@
 package com.voiceassistant.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -14,4 +15,8 @@ public class TodoItem {
     private String description;
     private LocalDate dueDate;
     private boolean completed;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    private AppUser owner;
 }

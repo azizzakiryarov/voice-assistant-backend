@@ -7,6 +7,7 @@ import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.mapper.Mapper;
+import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
 import com.voiceassistant.model.TodoItem;
@@ -29,16 +30,19 @@ public class CommandProcessorService {
     private final GoogleCalendarService googleCalendarService;
     private final TodoRepository todoRepository;
     private final MeetingRepository meetingRepository;
+    private final AppUserService appUserService;
 
     public CommandProcessorService(
             OpenAIService openAIService,
             GoogleCalendarService googleCalendarService,
             TodoRepository todoRepository,
-            MeetingRepository meetingRepository) {
+            MeetingRepository meetingRepository,
+            AppUserService appUserService) {
         this.openAIService = openAIService;
         this.googleCalendarService = googleCalendarService;
         this.todoRepository = todoRepository;
         this.meetingRepository = meetingRepository;
+        this.appUserService = appUserService;
     }
 
     public ResponseEntity<Object> processCommand(String text, LocalDate dueDate, String email) {
@@ -93,10 +97,12 @@ public class CommandProcessorService {
             return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
         }
 
+        AppUser owner = appUserService.getCurrentUser();
         TodoItem todoItem = new TodoItem();
         todoItem.setDescription(request.getDescription());
         todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now());
         todoItem.setCompleted(request.isCompleted());
+        todoItem.setOwner(owner);
 
         TodoItem saved = todoRepository.save(todoItem);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
@@ -112,11 +118,13 @@ public class CommandProcessorService {
             return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
         }
 
+        AppUser owner = appUserService.getCurrentUser();
         Meeting meeting = new Meeting();
         meeting.setTitle(request.getTitle());
         meeting.setStartTimestamp(request.getStartTimestamp());
         meeting.setEndTimestamp(request.getEndTimestamp());
         meeting.setParticipants(request.getParticipants());
+        meeting.setOwner(owner);
 
         if (isMeetingInvalid(meeting)) {
             return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
@@ -148,6 +156,7 @@ public class CommandProcessorService {
         if (todoItem.getDescription() == null || todoItem.getDescription().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
         }
+        todoItem.setOwner(appUserService.getCurrentUser());
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return ResponseEntity.ok(savedTodoItem);
     }
@@ -162,6 +171,7 @@ public class CommandProcessorService {
         if (isMeetingInvalid(meeting)) {
             return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
         }
+        meeting.setOwner(appUserService.getCurrentUser());
         try {
             googleCalendarService.createEvent(Mapper.mapMeetingToEvent(meeting, email));
         } catch (IOException e) {

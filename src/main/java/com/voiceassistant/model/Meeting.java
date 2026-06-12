@@ -1,5 +1,6 @@
 package com.voiceassistant.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -17,4 +18,8 @@ public class Meeting {
     private LocalDateTime endTimestamp;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Participants> participants;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    private AppUser owner;
 }
