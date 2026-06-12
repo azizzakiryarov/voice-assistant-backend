@@ -37,6 +37,7 @@ public class TodoItemServiceImpl implements TodoItemService {
             todoItem.setDueDate(LocalDate.now());
         }
         todoItem.setOwner(owner);
+        todoItem.setSyncStatus("LOCAL");
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return modelMapper.map(savedTodoItem, TodoItemResponseDTO.class);
     }

@@ -103,6 +103,7 @@ public class CommandProcessorService {
         todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now());
         todoItem.setCompleted(request.isCompleted());
         todoItem.setOwner(owner);
+        todoItem.setSyncStatus("LOCAL");
 
         TodoItem saved = todoRepository.save(todoItem);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
@@ -157,6 +158,7 @@ public class CommandProcessorService {
             return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
         }
         todoItem.setOwner(appUserService.getCurrentUser());
+        todoItem.setSyncStatus("LOCAL");
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return ResponseEntity.ok(savedTodoItem);
     }

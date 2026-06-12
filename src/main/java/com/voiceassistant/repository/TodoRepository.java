@@ -11,5 +11,7 @@ public interface TodoRepository extends JpaRepository<TodoItem, Long> {
 
     Optional<TodoItem> findByIdAndOwnerId(Long id, Long ownerId);
 
+    Optional<TodoItem> findByOwnerIdAndGoogleTaskListIdAndGoogleTaskId(Long ownerId, String googleTaskListId, String googleTaskId);
+
     boolean existsByIdAndOwnerId(Long id, Long ownerId);
 }

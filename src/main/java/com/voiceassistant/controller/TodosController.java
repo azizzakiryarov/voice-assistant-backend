@@ -1,7 +1,9 @@
 package com.voiceassistant.controller;
 
+import com.voiceassistant.dto.GoogleTasksSyncResultDTO;
 import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TodoItemResponseDTO;
+import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.service.TodoItemServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import java.util.List;
 public class TodosController {
 
     private final TodoItemServiceImpl todoItemServiceImpl;
+    private final GoogleTasksService googleTasksService;
 
     @GetMapping("/todos")
     public ResponseEntity<List<TodoItemResponseDTO>> getAllTodoItems() {
@@ -44,5 +47,10 @@ public class TodosController {
     public ResponseEntity<Void> deleteTodoItem(@PathVariable Long id) {
         todoItemServiceImpl.deleteTodoItem(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/todos/sync/google")
+    public ResponseEntity<GoogleTasksSyncResultDTO> syncGoogleTasks() {
+        return ResponseEntity.ok(googleTasksService.importCurrentUserTasks());
     }
 }

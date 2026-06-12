@@ -18,6 +18,7 @@ spring:
               - profile
               - email
               - https://www.googleapis.com/auth/calendar
+              - https://www.googleapis.com/auth/tasks
 
   servlet:
     multipart:

@@ -4,6 +4,7 @@ import com.voiceassistant.dto.SyncStatusDTO;
 import com.voiceassistant.dto.UserProfileDTO;
 import com.voiceassistant.service.AppUserService;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
+import com.voiceassistant.integration.google.service.GoogleTasksService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ public class AuthController {
 
     private final AppUserService appUserService;
     private final GoogleCalendarService googleCalendarService;
+    private final GoogleTasksService googleTasksService;
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileDTO> me() {
@@ -27,7 +29,7 @@ public class AuthController {
     public ResponseEntity<SyncStatusDTO> syncStatus() {
         SyncStatusDTO status = new SyncStatusDTO();
         status.setGoogleCalendar(googleCalendarService.hasCurrentUserCalendarToken() ? "CONNECTED" : "DISCONNECTED");
-        status.setGoogleTasks("NOT_CONFIGURED");
+        status.setGoogleTasks(googleTasksService.hasCurrentUserTasksToken() ? "CONNECTED" : "DISCONNECTED");
         return ResponseEntity.ok(status);
     }
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 @Entity
 @Data
@@ -15,6 +16,10 @@ public class TodoItem {
     private String description;
     private LocalDate dueDate;
     private boolean completed;
+    private String googleTaskId;
+    private String googleTaskListId;
+    private OffsetDateTime googleUpdatedAt;
+    private String syncStatus;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
