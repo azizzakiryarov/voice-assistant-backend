@@ -122,22 +122,24 @@ public class CommandProcessorService {
             return ResponseEntity.badRequest().body(Map.of("message", "Meeting details are incomplete"));
         }
 
+        Meeting saved = meetingRepository.save(meeting);
+        String email = meeting.getParticipants().stream()
+                .map(Participants::getEmail)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
+        boolean googleSynced = false;
         try {
-            String email = meeting.getParticipants().stream()
-                    .map(Participants::getEmail)
-                    .filter(value -> value != null && !value.isBlank())
-                    .findFirst()
-                    .orElse(null);
             googleCalendarService.createEvent(Mapper.mapMeetingToEvent(meeting, email));
+            googleSynced = true;
         } catch (IOException e) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Failed to save meeting to Google Calendar: " + e.getMessage()));
+            // The approved command is already persisted locally; surface sync state to the client.
         }
 
-        Meeting saved = meetingRepository.save(meeting);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
         response.setType(VoiceCommandType.MEETING);
         response.setSaved(saved);
-        response.setGoogleSynced(true);
+        response.setGoogleSynced(googleSynced);
         response.setGoogleService("GOOGLE_CALENDAR");
         return ResponseEntity.ok(response);
     }

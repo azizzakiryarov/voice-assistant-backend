@@ -35,7 +35,7 @@ public class TodosController {
     }
 
     @PutMapping("/todos/{id}")
-    public ResponseEntity<TodoItemResponseDTO> updateTodoItem(@PathVariable Long id, @Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
+    public ResponseEntity<TodoItemResponseDTO> updateTodoItem(@PathVariable Long id, @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
         TodoItemResponseDTO updatedUser = todoItemServiceImpl.updateTodoItem(id, todoItemRequestDTO);
         return ResponseEntity.ok(updatedUser);
     }

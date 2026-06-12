@@ -56,6 +56,12 @@ public class TodoItemServiceImpl implements TodoItemService {
     public TodoItemResponseDTO updateTodoItem(Long id, TodoItemRequestDTO todoItemRequestDTO) {
         TodoItem existingTodoItem = todoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(TODO_ITEM_NOT_FOUND_WITH_ID + id));
+        if (todoItemRequestDTO.getDescription() != null && !todoItemRequestDTO.getDescription().isBlank()) {
+            existingTodoItem.setDescription(todoItemRequestDTO.getDescription());
+        }
+        if (todoItemRequestDTO.getDueDate() != null) {
+            existingTodoItem.setDueDate(todoItemRequestDTO.getDueDate());
+        }
         existingTodoItem.setCompleted(todoItemRequestDTO.isCompleted());
         TodoItem updatedTodoItem = todoRepository.save(existingTodoItem);
         return modelMapper.map(updatedTodoItem, TodoItemResponseDTO.class);
