@@ -5,9 +5,9 @@ import os
 
 app = FastAPI()
 
-# For Raspberry Pi: start small.
+# For better Swedish transcription accuracy, start with base.
 # Options: "tiny", "base", "small"
-MODEL_SIZE = os.getenv("WHISPER_MODEL", "tiny")
+MODEL_SIZE = os.getenv("WHISPER_MODEL", "base")
 
 # CPU-friendly settings
 model = WhisperModel(
@@ -36,7 +36,8 @@ async def transcribe(
         segments, info = model.transcribe(
             tmp_path,
             language=language,
-            beam_size=1
+            beam_size=5,
+            vad_filter=True
         )
 
         text = " ".join(segment.text.strip() for segment in segments).strip()
