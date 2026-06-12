@@ -5,9 +5,10 @@ import os
 
 app = FastAPI()
 
-# For better Swedish transcription accuracy, start with base.
+# For better Swedish transcription accuracy, start with small.
 # Options: "tiny", "base", "small"
-MODEL_SIZE = os.getenv("WHISPER_MODEL", "base")
+MODEL_SIZE = os.getenv("WHISPER_MODEL", "small")
+HOTWORDS = os.getenv("WHISPER_HOTWORDS", "").strip() or None
 
 # CPU-friendly settings
 model = WhisperModel(
@@ -18,7 +19,7 @@ model = WhisperModel(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": MODEL_SIZE}
+    return {"status": "ok", "model": MODEL_SIZE, "hotwordsConfigured": HOTWORDS is not None}
 
 @app.post("/v1/audio/transcriptions")
 async def transcribe(
@@ -37,6 +38,7 @@ async def transcribe(
             tmp_path,
             language=language,
             beam_size=5,
+            hotwords=HOTWORDS,
             vad_filter=True
         )
 
