@@ -54,7 +54,7 @@ public class TodoItemServiceImpl implements TodoItemService {
     @Override
     public List<TodoItemResponseDTO> getAllTodoItems() {
         AppUser owner = appUserService.getCurrentUser();
-        return todoRepository.findAllByOwnerId(owner.getId())
+        return todoRepository.findAllByOwnerIdSortedLikeGoogle(owner.getId())
                 .stream()
                 .map(todoItem -> modelMapper.map(todoItem, TodoItemResponseDTO.class))
                 .toList();

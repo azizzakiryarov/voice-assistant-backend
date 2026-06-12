@@ -121,6 +121,7 @@ public class GoogleTasksService {
         todoItem.setDescription(title);
         todoItem.setDueDate(parseDueDate(textOrNull(task, "due")));
         todoItem.setCompleted("completed".equals(textOrNull(task, "status")));
+        todoItem.setGooglePosition(textOrNull(task, "position"));
         todoItem.setGoogleUpdatedAt(parseOffsetDateTime(textOrNull(task, "updated")));
         todoItem.setSyncStatus("GOOGLE_TASKS_IMPORTED");
         todoRepository.save(todoItem);

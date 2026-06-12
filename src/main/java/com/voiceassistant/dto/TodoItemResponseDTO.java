@@ -13,6 +13,7 @@ public class TodoItemResponseDTO {
     private boolean completed;
     private String googleTaskId;
     private String googleTaskListId;
+    private String googlePosition;
     private OffsetDateTime googleUpdatedAt;
     private String syncStatus;
 }
