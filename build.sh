@@ -12,6 +12,13 @@ if [ ! -f "pom.xml" ]; then
   exit 1
 fi
 
+# Build the latest application jar before creating the Docker image
+./mvnw -DskipTests package
+if [ $? -ne 0 ]; then
+  echo "Maven package failed"
+  exit 1
+fi
+
 # Build the Docker image
 podman build -t azizzakiryarov/voice-assistant-backend:latest .
 
