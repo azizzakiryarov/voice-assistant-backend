@@ -1,5 +1,5 @@
 # Run stage
-FROM eclipse-temurin:21-jdk-alpine
+FROM docker.io/library/eclipse-temurin:21-jdk-alpine
 
 # Copy the JAR file from the build stage
 COPY target/voice-assistant-0.0.1-SNAPSHOT.jar target/voice-assistant-0.0.1-SNAPSHOT.jar
