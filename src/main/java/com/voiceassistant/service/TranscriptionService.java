@@ -51,8 +51,6 @@ public class TranscriptionService {
                     return Optional.ofNullable(audioFile.getOriginalFilename()).orElse("audio.wav");
                 }
             });
-            body.add("language", "sv");
-
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(whisperBaseUrl + WHISPER_PATH, requestEntity, String.class);

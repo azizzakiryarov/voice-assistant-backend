@@ -2,6 +2,8 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.TodoItem;
+import com.voiceassistant.dto.VoiceCommandPreviewDTO;
+import com.voiceassistant.dto.VoiceCommandType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -131,5 +133,39 @@ class OpenAIServiceTest {
         Object result = openAIService.analyzeCommand("Boka ett möte");
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    void analyzeVoiceCommandPromptSupportsRussianTodoCommands() {
+        String command = "добавь купить молоко завтра";
+        String aiResponse = """
+                {
+                  "type": "TODO",
+                  "todo": {
+                    "description": "купить молоко",
+                    "dueDate": "2026-06-14",
+                    "completed": false
+                  },
+                  "meeting": null,
+                  "message": null
+                }
+                """;
+
+        when(chatClient.prompt()).thenReturn(typeRequest);
+        when(typeRequest.user(anyString())).thenReturn(typeRequest);
+        when(typeRequest.call()).thenReturn(typeResponse);
+        when(typeResponse.content()).thenReturn(aiResponse);
+
+        VoiceCommandPreviewDTO result = openAIService.analyzeVoiceCommand(command);
+
+        assertThat(result.getType()).isEqualTo(VoiceCommandType.TODO);
+        assertThat(result.getTodo().getDescription()).isEqualTo("купить молоко");
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(typeRequest).user(userPromptCaptor.capture());
+        assertThat(userPromptCaptor.getValue())
+                .contains("svenska, engelska eller ryska")
+                .contains("добавь купить молоко завтра")
+                .endsWith(command);
     }
 }

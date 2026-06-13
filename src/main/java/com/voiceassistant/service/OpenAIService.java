@@ -50,7 +50,7 @@ public class OpenAIService {
             "Analysera detta kommando och returnera JSON med detaljer: ";
 
     private static final String STRUCTURED_PROMPT = """
-        Du analyserar svenska röstkommandon för en röstassistent.
+        Du analyserar röstkommandon för en röstassistent. Kommandot kan vara på svenska, engelska eller ryska.
         Dagens datum är %s.
 
         Returnera ENDAST giltig JSON, utan markdown och utan extra text.
@@ -79,7 +79,10 @@ public class OpenAIService {
         - Vid UNKNOWN ska både todo och meeting vara null.
         - Om mötets sluttid saknas, sätt endTimestamp till en timme efter startTimestamp.
         - För mötestitel, använd en kort rubrik som passar Google Calendar.
-        - Tolka svenska datum och tider, exempel: "den 13 juni klockan tio noll noll".
+        - Tolka datum och tider på kommandots språk.
+        - Exempel svenska: "lägg till att köpa mjölk imorgon" -> TODO.
+        - Exempel ryska: "добавь купить молоко завтра" -> TODO.
+        - Exempel ryska: "запланируй встречу с Анной завтра в десять" -> MEETING.
 
         Kommando:
         """;
