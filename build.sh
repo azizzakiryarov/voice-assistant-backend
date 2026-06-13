@@ -12,10 +12,10 @@ if [ ! -f "pom.xml" ]; then
   exit 1
 fi
 
-# Build the latest application jar before creating the Docker image
-./mvnw -DskipTests package
+# Run the full Maven verification before creating the Docker image.
+./mvnw verify
 if [ $? -ne 0 ]; then
-  echo "Maven package failed"
+  echo "Maven verification failed"
   exit 1
 fi
 

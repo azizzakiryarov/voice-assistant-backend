@@ -53,6 +53,16 @@ server:
   port: 8081
   forward-headers-strategy: framework
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 google:
   calendar:
     client-id: ${GOOGLE_CALENDAR_CLIENT_ID}
