@@ -99,6 +99,7 @@ public class GoogleTasksService {
     private void syncTask(AppUser owner, String taskListId, JsonNode task, GoogleTasksSyncResultDTO result) {
         String taskId = textOrNull(task, "id");
         String title = textOrNull(task, "title");
+        String notes = textOrNull(task, "notes");
         if (taskId == null || title == null || title.isBlank()) {
             result.setSkippedCount(result.getSkippedCount() + 1);
             return;
@@ -118,7 +119,7 @@ public class GoogleTasksService {
             existing = false;
         }
 
-        todoItem.setDescription(title);
+        todoItem.setDescription(buildDescription(title, notes));
         todoItem.setDueDate(parseDueDate(textOrNull(task, "due")));
         todoItem.setCompleted("completed".equals(textOrNull(task, "status")));
         todoItem.setGooglePosition(textOrNull(task, "position"));
@@ -131,6 +132,15 @@ public class GoogleTasksService {
         } else {
             result.setImportedCount(result.getImportedCount() + 1);
         }
+    }
+
+    static String buildDescription(String title, String notes) {
+        String trimmedTitle = title == null ? "" : title.trim();
+        String trimmedNotes = notes == null ? "" : notes.trim();
+        if (trimmedNotes.isBlank()) {
+            return trimmedTitle;
+        }
+        return trimmedTitle + "\n" + trimmedNotes;
     }
 
     private JsonNode getJson(String url, HttpEntity<Void> requestEntity) {
