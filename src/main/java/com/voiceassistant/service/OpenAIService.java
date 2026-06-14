@@ -50,41 +50,12 @@ public class OpenAIService {
             "Analysera detta kommando och returnera JSON med detaljer: ";
 
     private static final String STRUCTURED_PROMPT = """
-        Du analyserar röstkommandon för en röstassistent. Kommandot kan vara på svenska, engelska eller ryska.
-        Dagens datum är %s.
-
-        Returnera ENDAST giltig JSON, utan markdown och utan extra text.
-        Välj type: "MEETING", "TODO" eller "UNKNOWN".
-
-        JSON-format:
-        {
-          "type": "MEETING|TODO|UNKNOWN",
-          "todo": {
-            "description": "string",
-            "dueDate": "YYYY-MM-DD eller null",
-            "completed": false
-          },
-          "meeting": {
-            "title": "string",
-            "startTimestamp": "YYYY-MM-DDTHH:mm:ss eller null",
-            "endTimestamp": "YYYY-MM-DDTHH:mm:ss eller null",
-            "participants": [{"name": "string", "email": "string eller null"}]
-          },
-          "message": "kort förklaring om UNKNOWN eller osäkerhet"
-        }
-
-        Regler:
-        - Vid MEETING ska todo vara null.
-        - Vid TODO ska meeting vara null.
-        - Vid UNKNOWN ska både todo och meeting vara null.
-        - Om mötets sluttid saknas, sätt endTimestamp till en timme efter startTimestamp.
-        - För mötestitel, använd en kort rubrik som passar Google Calendar.
-        - Tolka datum och tider på kommandots språk.
-        - Exempel svenska: "lägg till att köpa mjölk imorgon" -> TODO.
-        - Exempel ryska: "добавь купить молоко завтра" -> TODO.
-        - Exempel ryska: "запланируй встречу с Анной завтра в десять" -> MEETING.
-
-        Kommando:
+        Extract a voice command. Språk: svenska, engelska eller ryska. Today: %s.
+        Return ONLY compact valid JSON, no markdown, no explanation.
+        Schema:
+        {"type":"TODO|MEETING|UNKNOWN","todo":{"description":"string","dueDate":"YYYY-MM-DD|null","completed":false},"meeting":{"title":"string","startTimestamp":"YYYY-MM-DDTHH:mm:ss|null","endTimestamp":"YYYY-MM-DDTHH:mm:ss|null","participants":[{"name":"string","email":"string|null"}]},"message":"string|null"}
+        Rules: TODO => meeting null. MEETING => todo null. UNKNOWN => both null. If meeting end is missing, use start + 1 hour. Interpret relative dates from today. Keep strings short.
+        Command:
         """;
 
     public OpenAIService(ChatClient.Builder chatClient) {
