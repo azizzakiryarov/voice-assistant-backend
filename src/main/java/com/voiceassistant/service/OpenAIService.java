@@ -12,6 +12,7 @@ import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -32,6 +33,16 @@ public class OpenAIService {
         TODO,
         MEETING
     }
+
+    private static final OllamaOptions TEXT_ANALYSIS_OPTIONS = OllamaOptions.builder()
+            .format("json")
+            .keepAlive("30m")
+            .numCtx(4096)
+            .numThread(4)
+            .numPredict(1200)
+            .temperature(0.1)
+            .topP(0.8)
+            .build();
 
     // Tydliga instruktioner för AI
     private static final String TYPE_PROMPT = """
@@ -114,6 +125,9 @@ public class OpenAIService {
 
         Regler:
         - Skilj mellan kalenderhändelser, uppgifter och ren information.
+        - Håll svaret kort och kompakt. Returnera högst 8 events, 8 todos och 8 informationalItems.
+        - sourceText ska vara ett kort citat från input, max 160 tecken.
+        - description ska vara kort, max 240 tecken.
         - Skapa inte todo av reklam, signatur, hälsningsfraser eller kontaktuppgifter.
         - Dubbletter ska tas bort, även om samma information finns på svenska och engelska.
         - Hitta inte på datum, tider, platser eller deadlines.
@@ -203,6 +217,7 @@ public class OpenAIService {
         for (int attempt = 0; attempt < 2; attempt++) {
             try {
                 String response = Objects.requireNonNull(chatClient.prompt()
+                                .options(TEXT_ANALYSIS_OPTIONS)
                                 .user(prompt)
                                 .call()
                                 .content())

@@ -17,6 +17,7 @@ import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -182,9 +183,11 @@ class OpenAIServiceTest {
         ChatClient.CallResponseSpec retryResponse = mock(ChatClient.CallResponseSpec.class);
 
         when(chatClient.prompt()).thenReturn(typeRequest, retryRequest);
+        when(typeRequest.options(any())).thenReturn(typeRequest);
         when(typeRequest.user(anyString())).thenReturn(typeRequest);
         when(typeRequest.call()).thenReturn(typeResponse);
         when(typeResponse.content()).thenReturn("not-json");
+        when(retryRequest.options(any())).thenReturn(retryRequest);
         when(retryRequest.user(anyString())).thenReturn(retryRequest);
         when(retryRequest.call()).thenReturn(retryResponse);
         when(retryResponse.content()).thenReturn("""
@@ -207,9 +210,11 @@ class OpenAIServiceTest {
     @Test
     void analyzeTextThrowsWhenModelNeverReturnsValidJson() {
         when(chatClient.prompt()).thenReturn(typeRequest, detailsRequest);
+        when(typeRequest.options(any())).thenReturn(typeRequest);
         when(typeRequest.user(anyString())).thenReturn(typeRequest);
         when(typeRequest.call()).thenReturn(typeResponse);
         when(typeResponse.content()).thenReturn("not-json");
+        when(detailsRequest.options(any())).thenReturn(detailsRequest);
         when(detailsRequest.user(anyString())).thenReturn(detailsRequest);
         when(detailsRequest.call()).thenReturn(detailsResponse);
         when(detailsResponse.content()).thenReturn("still-not-json");

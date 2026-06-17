@@ -78,8 +78,18 @@ public class TextAnalysisService {
                 normalizedRequest.text().length(),
                 normalizedRequest.title() != null && !normalizedRequest.title().isBlank());
 
+        long startedAt = System.nanoTime();
         TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(normalizedRequest);
-        return postProcessor.normalize(llmResponse, normalizedRequest.receivedAt(), zone);
+        TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(llmResponse, normalizedRequest.receivedAt(), zone);
+        long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
+        log.info(
+                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={}",
+                durationMs,
+                safeList(normalizedResponse.events()).size(),
+                safeList(normalizedResponse.todos()).size(),
+                safeList(normalizedResponse.informationalItems()).size(),
+                safeList(normalizedResponse.warnings()).size());
+        return normalizedResponse;
     }
 
     @Transactional

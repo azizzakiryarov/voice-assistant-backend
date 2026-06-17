@@ -42,8 +42,12 @@ spring:
       base-url: http://ollama-svc:11434
       chat:
         options:
-          model: llama3.2:1b
-          temperature: 0.3
+          model: ${OLLAMA_CHAT_MODEL:llama3.2:1b}
+          temperature: ${OLLAMA_TEMPERATURE:0.3}
+          keep-alive: ${OLLAMA_KEEP_ALIVE:30m}
+          num-ctx: ${OLLAMA_NUM_CTX:4096}
+          num-thread: ${OLLAMA_NUM_THREAD:4}
+          num-predict: ${OLLAMA_NUM_PREDICT:1200}
 transcription:
   whisper:
     base-url: ${WHISPER_BASE_URL:http://localhost:9000}
