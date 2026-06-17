@@ -11,12 +11,16 @@ import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
@@ -24,6 +28,7 @@ import java.util.Objects;
 public class OpenAIService {
 
     private final ChatClient chatClient;
+    private final OllamaOptions textAnalysisOptions;
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -34,15 +39,7 @@ public class OpenAIService {
         MEETING
     }
 
-    private static final OllamaOptions TEXT_ANALYSIS_OPTIONS = OllamaOptions.builder()
-            .format("json")
-            .keepAlive("30m")
-            .numCtx(4096)
-            .numThread(4)
-            .numPredict(1200)
-            .temperature(0.1)
-            .topP(0.8)
-            .build();
+    private static final Map<String, Object> TEXT_ANALYSIS_JSON_SCHEMA = textAnalysisJsonSchema();
 
     // Tydliga instruktioner för AI
     private static final String TYPE_PROMPT = """
@@ -125,9 +122,9 @@ public class OpenAIService {
 
         Regler:
         - Skilj mellan kalenderhändelser, uppgifter och ren information.
-        - Håll svaret kort och kompakt. Returnera högst 8 events, 8 todos och 8 informationalItems.
-        - sourceText ska vara ett kort citat från input, max 160 tecken.
-        - description ska vara kort, max 240 tecken.
+        - Håll svaret kort och kompakt. Returnera högst 6 events, 6 todos och 6 informationalItems.
+        - sourceText ska vara ett kort citat från input, max 120 tecken.
+        - description ska vara kort, max 180 tecken.
         - Skapa inte todo av reklam, signatur, hälsningsfraser eller kontaktuppgifter.
         - Dubbletter ska tas bort, även om samma information finns på svenska och engelska.
         - Hitta inte på datum, tider, platser eller deadlines.
@@ -141,7 +138,26 @@ public class OpenAIService {
         """;
 
     public OpenAIService(ChatClient.Builder chatClient) {
+        this(chatClient, "30m", 4096, 4, 2600);
+    }
+
+    @Autowired
+    public OpenAIService(
+            ChatClient.Builder chatClient,
+            @Value("${app.text-analysis.ollama.keep-alive:30m}") String keepAlive,
+            @Value("${app.text-analysis.ollama.num-ctx:4096}") int numCtx,
+            @Value("${app.text-analysis.ollama.num-thread:4}") int numThread,
+            @Value("${app.text-analysis.ollama.num-predict:2600}") int numPredict) {
         this.chatClient = chatClient.build();
+        this.textAnalysisOptions = OllamaOptions.builder()
+                .format(TEXT_ANALYSIS_JSON_SCHEMA)
+                .keepAlive(keepAlive)
+                .numCtx(numCtx)
+                .numThread(numThread)
+                .numPredict(numPredict)
+                .temperature(0.1)
+                .topP(0.8)
+                .build();
     }
 
     public Object analyzeCommand(String text) {
@@ -215,17 +231,24 @@ public class OpenAIService {
         RuntimeException lastFailure = null;
 
         for (int attempt = 0; attempt < 2; attempt++) {
+            String response = null;
             try {
-                String response = Objects.requireNonNull(chatClient.prompt()
-                                .options(TEXT_ANALYSIS_OPTIONS)
+                response = Objects.requireNonNull(chatClient.prompt()
+                                .options(textAnalysisOptions)
                                 .user(prompt)
                                 .call()
                                 .content())
                         .trim();
                 return objectMapper.readValue(cleanJson(response), TextAnalysisResponseDTO.class);
             } catch (Exception e) {
+                log.warn(
+                        "Invalid text analysis JSON attempt={} responseLength={} completeJson={} cause={}",
+                        attempt + 1,
+                        response == null ? 0 : response.length(),
+                        response != null && isCompleteJson(response),
+                        e.getClass().getSimpleName());
                 lastFailure = new TextAnalysisException("LLM returned invalid text analysis JSON", e);
-                prompt = buildTextAnalysisPrompt(request, "Förra svaret var inte giltig JSON för schemat. Returnera endast korrigerad JSON.");
+                prompt = buildTextAnalysisPrompt(request, "Förra svaret var inte giltig JSON. Returnera en kortare komplett JSON enligt schemat. Kapa inte svaret mitt i JSON.");
             }
         }
 
@@ -267,6 +290,129 @@ public class OpenAIService {
             return cleaned.substring(start, end + 1);
         }
         return cleaned;
+    }
+
+    private boolean isCompleteJson(String response) {
+        String cleaned = cleanJson(response);
+        return cleaned.startsWith("{") && cleaned.endsWith("}");
+    }
+
+    private static Map<String, Object> textAnalysisJsonSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("summary", "language", "events", "todos", "informationalItems", "warnings"),
+                "properties", Map.of(
+                        "summary", Map.of("type", "string", "maxLength", 240),
+                        "language", Map.of("type", "string", "enum", List.of("sv", "en", "mixed", "unknown")),
+                        "events", arraySchema(eventSchema(), 6),
+                        "todos", arraySchema(todoSchema(), 6),
+                        "informationalItems", arraySchema(informationalItemSchema(), 6),
+                        "warnings", arraySchema(warningSchema(), 8)
+                )
+        );
+    }
+
+    private static Map<String, Object> eventSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("title", "description", "startDateTime", "endDateTime", "allDay", "location",
+                        "category", "urgency", "confidence", "requiresConfirmation", "sourceText"),
+                "properties", Map.ofEntries(
+                        Map.entry("title", stringSchema(120)),
+                        Map.entry("description", nullableStringSchema(180)),
+                        Map.entry("startDateTime", stringSchema(40)),
+                        Map.entry("endDateTime", nullableStringSchema(40)),
+                        Map.entry("allDay", Map.of("type", "boolean")),
+                        Map.entry("location", nullableStringSchema(160)),
+                        Map.entry("category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER")),
+                        Map.entry("urgency", enumSchema("CRITICAL", "HIGH", "MEDIUM", "LOW")),
+                        Map.entry("confidence", Map.of("type", "number", "minimum", 0, "maximum", 1)),
+                        Map.entry("requiresConfirmation", Map.of("type", "boolean")),
+                        Map.entry("sourceText", stringSchema(120))
+                )
+        );
+    }
+
+    private static Map<String, Object> todoSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("title", "description", "deadline", "deadlineType", "recurrence", "category",
+                        "urgency", "confidence", "requiresConfirmation", "sourceText"),
+                "properties", Map.ofEntries(
+                        Map.entry("title", stringSchema(120)),
+                        Map.entry("description", nullableStringSchema(180)),
+                        Map.entry("deadline", nullableStringSchema(40)),
+                        Map.entry("deadlineType", enumSchema("EXACT_DATE", "EXACT_DATE_TIME", "AS_SOON_AS_POSSIBLE", "EARLIEST_CONVENIENCE", "RECURRING", "NONE", "UNKNOWN")),
+                        Map.entry("recurrence", nullableObjectSchema(recurrenceSchema())),
+                        Map.entry("category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER")),
+                        Map.entry("urgency", enumSchema("CRITICAL", "HIGH", "MEDIUM", "LOW")),
+                        Map.entry("confidence", Map.of("type", "number", "minimum", 0, "maximum", 1)),
+                        Map.entry("requiresConfirmation", Map.of("type", "boolean")),
+                        Map.entry("sourceText", stringSchema(120))
+                )
+        );
+    }
+
+    private static Map<String, Object> recurrenceSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("frequency", "interval"),
+                "properties", Map.of(
+                        "frequency", enumSchema("DAILY", "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"),
+                        "interval", Map.of("type", "integer", "minimum", 1, "maximum", 365)
+                )
+        );
+    }
+
+    private static Map<String, Object> informationalItemSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("title", "description", "category", "sourceText"),
+                "properties", Map.of(
+                        "title", stringSchema(120),
+                        "description", nullableStringSchema(180),
+                        "category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER"),
+                        "sourceText", stringSchema(120)
+                )
+        );
+    }
+
+    private static Map<String, Object> warningSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("code", "message", "requiresUserAttention"),
+                "properties", Map.of(
+                        "code", stringSchema(80),
+                        "message", stringSchema(180),
+                        "requiresUserAttention", Map.of("type", "boolean")
+                )
+        );
+    }
+
+    private static Map<String, Object> arraySchema(Map<String, Object> itemSchema, int maxItems) {
+        return Map.of("type", "array", "maxItems", maxItems, "items", itemSchema);
+    }
+
+    private static Map<String, Object> stringSchema(int maxLength) {
+        return Map.of("type", "string", "maxLength", maxLength);
+    }
+
+    private static Map<String, Object> nullableStringSchema(int maxLength) {
+        return Map.of("type", List.of("string", "null"), "maxLength", maxLength);
+    }
+
+    private static Map<String, Object> nullableObjectSchema(Map<String, Object> objectSchema) {
+        return Map.of("anyOf", List.of(objectSchema, Map.of("type", "null")));
+    }
+
+    private static Map<String, Object> enumSchema(String... values) {
+        return Map.of("type", "string", "enum", List.of(values));
     }
 
     private CommandType resolveCommandType(String commandType) {

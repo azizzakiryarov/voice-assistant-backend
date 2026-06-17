@@ -47,7 +47,7 @@ spring:
           keep-alive: ${OLLAMA_KEEP_ALIVE:30m}
           num-ctx: ${OLLAMA_NUM_CTX:4096}
           num-thread: ${OLLAMA_NUM_THREAD:4}
-          num-predict: ${OLLAMA_NUM_PREDICT:1200}
+          num-predict: ${OLLAMA_NUM_PREDICT:2600}
 transcription:
   whisper:
     base-url: ${WHISPER_BASE_URL:http://localhost:9000}
@@ -76,6 +76,12 @@ google:
 
 app:
   frontend-url: ${APP_FRONTEND_URL:/}
+  text-analysis:
+    ollama:
+      keep-alive: ${TEXT_ANALYSIS_OLLAMA_KEEP_ALIVE:${OLLAMA_KEEP_ALIVE:30m}}
+      num-ctx: ${TEXT_ANALYSIS_OLLAMA_NUM_CTX:${OLLAMA_NUM_CTX:4096}}
+      num-thread: ${TEXT_ANALYSIS_OLLAMA_NUM_THREAD:${OLLAMA_NUM_THREAD:4}}
+      num-predict: ${TEXT_ANALYSIS_OLLAMA_NUM_PREDICT:${OLLAMA_NUM_PREDICT:2600}}
 
 # CORS
 web:
