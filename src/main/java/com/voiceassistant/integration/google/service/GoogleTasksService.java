@@ -10,6 +10,7 @@ import com.voiceassistant.service.AppUserService;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,7 +24,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 public class GoogleTasksService {
@@ -69,6 +74,45 @@ public class GoogleTasksService {
     public boolean hasCurrentUserTasksToken() {
         OAuth2AuthorizedClient authorizedClient = currentAuthorizedClient();
         return authorizedClient != null && authorizedClient.getAccessToken() != null;
+    }
+
+    public boolean createTaskIfConnected(TodoItem todoItem) {
+        if (!hasCurrentUserTasksToken()) {
+            return false;
+        }
+
+        String[] descriptionParts = splitDescription(todoItem.getDescription());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("title", descriptionParts[0]);
+        if (!descriptionParts[1].isBlank()) {
+            body.put("notes", descriptionParts[1]);
+        }
+        if (todoItem.getDueDate() != null) {
+            body.put("due", todoItem.getDueDate()
+                    .atStartOfDay()
+                    .atOffset(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        }
+
+        try {
+            HttpHeaders headers = authorizedHeaders();
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    TASKS_BASE_URL + "/lists/@default/tasks",
+                    HttpMethod.POST,
+                    requestEntity,
+                    String.class);
+            JsonNode created = objectMapper.readTree(response.getBody());
+            todoItem.setGoogleTaskListId("@default");
+            todoItem.setGoogleTaskId(textOrNull(created, "id"));
+            todoItem.setGooglePosition(textOrNull(created, "position"));
+            todoItem.setGoogleUpdatedAt(parseOffsetDateTime(textOrNull(created, "updated")));
+            todoItem.setSyncStatus("GOOGLE_TASKS_CREATED");
+            todoRepository.save(todoItem);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void importTaskList(
@@ -155,13 +199,18 @@ public class GoogleTasksService {
     }
 
     private HttpEntity<Void> authorizedRequest() {
+        return new HttpEntity<>(authorizedHeaders());
+    }
+
+    private HttpHeaders authorizedHeaders() {
         OAuth2AuthorizedClient authorizedClient = currentAuthorizedClient();
         if (authorizedClient == null || authorizedClient.getAccessToken() == null) {
             throw new IllegalStateException("Google Tasks is not connected for current user");
         }
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(authorizedClient.getAccessToken().getTokenValue());
-        return new HttpEntity<>(headers);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
     }
 
     private OAuth2AuthorizedClient currentAuthorizedClient() {
@@ -194,5 +243,14 @@ public class GoogleTasksService {
             return null;
         }
         return OffsetDateTime.parse(value);
+    }
+
+    private String[] splitDescription(String description) {
+        String trimmed = description == null ? "" : description.trim();
+        if (trimmed.isBlank()) {
+            return new String[]{"Ny uppgift", ""};
+        }
+        String[] lines = trimmed.split("\\R", 2);
+        return new String[]{lines[0], lines.length > 1 ? lines[1].trim() : ""};
     }
 }

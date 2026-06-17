@@ -2,6 +2,10 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.TodoItem;
+import com.voiceassistant.dto.SourceType;
+import com.voiceassistant.dto.TextAnalysisRequestDTO;
+import com.voiceassistant.dto.TextAnalysisResponseDTO;
+import com.voiceassistant.exception.TextAnalysisException;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.time.OffsetDateTime;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -167,5 +174,57 @@ class OpenAIServiceTest {
                 .contains("svenska, engelska eller ryska")
                 .contains("добавь купить молоко завтра")
                 .endsWith(command);
+    }
+
+    @Test
+    void analyzeTextRetriesOnceWhenFirstResponseIsInvalidJson() {
+        ChatClient.ChatClientRequestSpec retryRequest = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec retryResponse = mock(ChatClient.CallResponseSpec.class);
+
+        when(chatClient.prompt()).thenReturn(typeRequest, retryRequest);
+        when(typeRequest.user(anyString())).thenReturn(typeRequest);
+        when(typeRequest.call()).thenReturn(typeResponse);
+        when(typeResponse.content()).thenReturn("not-json");
+        when(retryRequest.user(anyString())).thenReturn(retryRequest);
+        when(retryRequest.call()).thenReturn(retryResponse);
+        when(retryResponse.content()).thenReturn("""
+                {
+                  "summary": "Information om skolstarten.",
+                  "language": "sv",
+                  "events": [],
+                  "todos": [],
+                  "informationalItems": [],
+                  "warnings": []
+                }
+                """);
+
+        TextAnalysisResponseDTO result = openAIService.analyzeText(textAnalysisRequest());
+
+        assertThat(result.summary()).isEqualTo("Information om skolstarten.");
+        verify(chatClient, times(2)).prompt();
+    }
+
+    @Test
+    void analyzeTextThrowsWhenModelNeverReturnsValidJson() {
+        when(chatClient.prompt()).thenReturn(typeRequest, detailsRequest);
+        when(typeRequest.user(anyString())).thenReturn(typeRequest);
+        when(typeRequest.call()).thenReturn(typeResponse);
+        when(typeResponse.content()).thenReturn("not-json");
+        when(detailsRequest.user(anyString())).thenReturn(detailsRequest);
+        when(detailsRequest.call()).thenReturn(detailsResponse);
+        when(detailsResponse.content()).thenReturn("still-not-json");
+
+        assertThatThrownBy(() -> openAIService.analyzeText(textAnalysisRequest()))
+                .isInstanceOf(TextAnalysisException.class)
+                .hasMessageContaining("LLM returned invalid text analysis JSON");
+    }
+
+    private TextAnalysisRequestDTO textAnalysisRequest() {
+        return new TextAnalysisRequestDTO(
+                "Mejl från skolan",
+                "Första skoldagen är den 17 augusti.",
+                SourceType.EMAIL,
+                OffsetDateTime.parse("2026-06-17T15:00:00+02:00"),
+                "Europe/Stockholm");
     }
 }

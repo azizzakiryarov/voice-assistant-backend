@@ -3,6 +3,9 @@ package com.voiceassistant.service;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.voiceassistant.dto.TextAnalysisRequestDTO;
+import com.voiceassistant.dto.TextAnalysisResponseDTO;
+import com.voiceassistant.exception.TextAnalysisException;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
@@ -56,6 +59,71 @@ public class OpenAIService {
         {"type":"TODO|MEETING|UNKNOWN","todo":{"description":"string","dueDate":"YYYY-MM-DD|null","completed":false},"meeting":{"title":"string","startTimestamp":"YYYY-MM-DDTHH:mm:ss|null","endTimestamp":"YYYY-MM-DDTHH:mm:ss|null","participants":[{"name":"string","email":"string|null"}]},"message":"string|null"}
         Rules: TODO => meeting null. MEETING => todo null. UNKNOWN => both null. If meeting end is missing, use start + 1 hour. Interpret relative dates from today. Keep strings short.
         Command:
+        """;
+
+    private static final String TEXT_ANALYSIS_SYSTEM_PROMPT = """
+        Du analyserar längre användartexter lokalt för en privat assistent.
+        Returnera ENDAST giltig kompakt JSON. Använd inte markdown, kodblock eller förklarande text.
+        Skicka aldrig data vidare till externa tjänster.
+
+        JSON-schema:
+        {
+          "summary":"string",
+          "language":"sv|en|mixed|unknown",
+          "events":[
+            {
+              "title":"string",
+              "description":"string|null",
+              "startDateTime":"ISO-8601 date or date-time string",
+              "endDateTime":"ISO-8601 date or date-time string|null",
+              "allDay":true,
+              "location":"string|null",
+              "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
+              "urgency":"CRITICAL|HIGH|MEDIUM|LOW",
+              "confidence":0.0,
+              "requiresConfirmation":true,
+              "sourceText":"short exact supporting quote from the input"
+            }
+          ],
+          "todos":[
+            {
+              "title":"string",
+              "description":"string|null",
+              "deadline":"ISO-8601 date or date-time string|null",
+              "deadlineType":"EXACT_DATE|EXACT_DATE_TIME|AS_SOON_AS_POSSIBLE|EARLIEST_CONVENIENCE|RECURRING|NONE|UNKNOWN",
+              "recurrence":{"frequency":"DAILY|WEEKLY|MONTHLY|YEARLY|CUSTOM","interval":1},
+              "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
+              "urgency":"CRITICAL|HIGH|MEDIUM|LOW",
+              "confidence":0.0,
+              "requiresConfirmation":true,
+              "sourceText":"short exact supporting quote from the input"
+            }
+          ],
+          "informationalItems":[
+            {
+              "title":"string",
+              "description":"string|null",
+              "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
+              "sourceText":"short exact supporting quote from the input"
+            }
+          ],
+          "warnings":[
+            {"code":"string","message":"string","requiresUserAttention":true}
+          ]
+        }
+
+        Regler:
+        - Skilj mellan kalenderhändelser, uppgifter och ren information.
+        - Skapa inte todo av reklam, signatur, hälsningsfraser eller kontaktuppgifter.
+        - Dubbletter ska tas bort, även om samma information finns på svenska och engelska.
+        - Hitta inte på datum, tider, platser eller deadlines.
+        - Om bara dag och månad anges, härled år från receivedAt och sammanhang; lägg till warning YEAR_INFERRED.
+        - Om texten säger "så snart som möjligt", "as soon as possible" eller liknande: deadline null och deadlineType AS_SOON_AS_POSSIBLE.
+        - Om texten säger "regelbundet" eller "regularly": markera som RECURRING och kräva bekräftelse.
+        - Markera datum som verkar ha passerat med warning DATE_IN_PAST eller DEADLINE_IN_PAST.
+        - Allergier, specialkost, säkerhet och myndighetskrav ska normalt ha högre urgency.
+        - Informationsposter ska inte bli todos om användaren inte behöver göra något.
+        - Alla event och todos ska ha requiresConfirmation true.
         """;
 
     public OpenAIService(ChatClient.Builder chatClient) {
@@ -126,6 +194,50 @@ public class OpenAIService {
             log.warn("Fel vid strukturerad analys av röstkommando: {}", e.getMessage());
             return fallback;
         }
+    }
+
+    public TextAnalysisResponseDTO analyzeText(TextAnalysisRequestDTO request) {
+        String prompt = buildTextAnalysisPrompt(request, null);
+        RuntimeException lastFailure = null;
+
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                String response = Objects.requireNonNull(chatClient.prompt()
+                                .user(prompt)
+                                .call()
+                                .content())
+                        .trim();
+                return objectMapper.readValue(cleanJson(response), TextAnalysisResponseDTO.class);
+            } catch (Exception e) {
+                lastFailure = new TextAnalysisException("LLM returned invalid text analysis JSON", e);
+                prompt = buildTextAnalysisPrompt(request, "Förra svaret var inte giltig JSON för schemat. Returnera endast korrigerad JSON.");
+            }
+        }
+
+        throw lastFailure == null
+                ? new TextAnalysisException("LLM text analysis failed")
+                : lastFailure;
+    }
+
+    private String buildTextAnalysisPrompt(TextAnalysisRequestDTO request, String retryInstruction) {
+        String retry = retryInstruction == null ? "" : "\nRetry-instruktion: " + retryInstruction + "\n";
+        return TEXT_ANALYSIS_SYSTEM_PROMPT + retry + """
+
+            Metadata:
+            title: %s
+            sourceType: %s
+            receivedAt: %s
+            timeZone: %s
+
+            Text:
+            %s
+            """.formatted(
+                request.title(),
+                request.sourceType(),
+                request.receivedAt(),
+                request.timeZone(),
+                request.text()
+        );
     }
 
     private String cleanJson(String response) {
