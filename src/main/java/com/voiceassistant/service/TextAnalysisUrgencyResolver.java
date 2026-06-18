@@ -26,11 +26,11 @@ public class TextAnalysisUrgencyResolver {
         }
 
         if (source.contains("omgående")
-                || source.contains("så snart")
-                || source.contains("as soon as possible")
                 || source.contains("immediately")) {
             resolved = max(resolved, Urgency.HIGH);
-        } else if (deadlineType == DeadlineType.AS_SOON_AS_POSSIBLE) {
+        } else if (source.contains("så snart")
+                || source.contains("as soon as possible")
+                || deadlineType == DeadlineType.AS_SOON_AS_POSSIBLE) {
             resolved = max(resolved, Urgency.MEDIUM);
         }
 

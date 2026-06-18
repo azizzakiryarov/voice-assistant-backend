@@ -129,10 +129,10 @@ public class TextAnalysisPostProcessor {
             ZoneId zone,
             List<TextAnalysisWarningDTO> warnings) {
         if (!dateResolver.sourceContainsExplicitYear(event.sourceText()) && containsYear(event.startDateTime())) {
-            warnings.add(new TextAnalysisWarningDTO(
+            addWarningIfMissing(
+                    warnings,
                     "YEAR_INFERRED",
-                    "Årtalet anges inte uttryckligen för \"" + event.title() + "\" och behöver kontrolleras.",
-                    true));
+                    "Årtalet anges inte uttryckligen för \"" + event.title() + "\" och behöver kontrolleras.");
         }
         try {
             if (dateResolver.parseDate(event.startDateTime(), zone).isBefore(receivedAt.atZoneSameInstant(zone).toLocalDate())) {
@@ -157,18 +157,18 @@ public class TextAnalysisPostProcessor {
         if (todo.deadline() == null) {
             if (todo.deadlineType() == DeadlineType.AS_SOON_AS_POSSIBLE
                     || todo.deadlineType() == DeadlineType.EARLIEST_CONVENIENCE) {
-                warnings.add(new TextAnalysisWarningDTO(
+                addWarningIfMissing(
+                        warnings,
                         "MISSING_EXACT_DEADLINE",
-                        "\"" + todo.title() + "\" saknar ett exakt sista datum.",
-                        true));
+                        "\"" + todo.title() + "\" saknar ett exakt sista datum.");
             }
             return;
         }
         if (!dateResolver.sourceContainsExplicitYear(todo.sourceText()) && containsYear(todo.deadline())) {
-            warnings.add(new TextAnalysisWarningDTO(
+            addWarningIfMissing(
+                    warnings,
                     "YEAR_INFERRED",
-                    "Årtalet anges inte uttryckligen för \"" + todo.title() + "\" och behöver kontrolleras.",
-                    true));
+                    "Årtalet anges inte uttryckligen för \"" + todo.title() + "\" och behöver kontrolleras.");
         }
         try {
             if (dateResolver.parseDate(todo.deadline(), zone).isBefore(receivedAt.atZoneSameInstant(zone).toLocalDate())) {
@@ -206,6 +206,15 @@ public class TextAnalysisPostProcessor {
                     warning.requiresUserAttention() == null || warning.requiresUserAttention()));
         }
         return List.copyOf(deduplicated.values());
+    }
+
+    private void addWarningIfMissing(List<TextAnalysisWarningDTO> warnings, String code, String message) {
+        boolean exists = warnings.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(warning -> code.equals(warning.code()));
+        if (!exists) {
+            warnings.add(new TextAnalysisWarningDTO(code, message, true));
+        }
     }
 
     private String eventFingerprint(TextAnalysisEventDTO event) {

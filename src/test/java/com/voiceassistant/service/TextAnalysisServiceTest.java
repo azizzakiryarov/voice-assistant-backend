@@ -2,12 +2,15 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.dto.ItemCategory;
 import com.voiceassistant.dto.DeadlineType;
+import com.voiceassistant.dto.RecurrenceFrequency;
 import com.voiceassistant.dto.SourceType;
 import com.voiceassistant.dto.TextAnalysisApprovalRequestDTO;
 import com.voiceassistant.dto.TextAnalysisEventDTO;
+import com.voiceassistant.dto.TextAnalysisInformationalItemDTO;
 import com.voiceassistant.dto.TextAnalysisRequestDTO;
 import com.voiceassistant.dto.TextAnalysisResponseDTO;
 import com.voiceassistant.dto.TextAnalysisTodoDTO;
+import com.voiceassistant.dto.TextAnalysisWarningDTO;
 import com.voiceassistant.dto.Urgency;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.integration.google.service.GoogleTasksService;
@@ -127,7 +130,7 @@ class TextAnalysisServiceTest {
     }
 
     @Test
-    void analyzeComplementsWeakLlmResultWithHeuristicSchoolEmailItems() throws IOException {
+    void analyzeProducesExactSchoolEmailSuggestionsAndIgnoresLlmExtras() throws IOException {
         String email = loadEmailFixture();
         TextAnalysisRequestDTO request = new TextAnalysisRequestDTO(
                 "Mejl från skolan",
@@ -137,30 +140,103 @@ class TextAnalysisServiceTest {
                 "Europe/Stockholm");
 
         when(openAIService.analyzeText(any())).thenReturn(new TextAnalysisResponseDTO(
-                "Skolstart",
+                "Osäkert LLM-svar",
                 "sv",
-                List.of(),
-                List.of(),
-                List.of(),
+                List.of(new TextAnalysisEventDTO(
+                        "Kontakta skolan",
+                        "Hallucinerat extra event som inte ska släppas igenom för det kända skolmejlet.",
+                        "2026-08-19",
+                        null,
+                        true,
+                        null,
+                        ItemCategory.SCHOOL,
+                        Urgency.LOW,
+                        0.2,
+                        true,
+                        "student.admissions.enskede@engelska.se")),
+                List.of(new TextAnalysisTodoDTO(
+                        "Svara på mejlet",
+                        "Hallucinerad uppgift utan stöd i texten.",
+                        null,
+                        DeadlineType.UNKNOWN,
+                        null,
+                        ItemCategory.SCHOOL,
+                        Urgency.LOW,
+                        0.2,
+                        true,
+                        "If you have any questions")),
+                List.of(new TextAnalysisInformationalItemDTO(
+                        "Kontaktuppgifter till skolan",
+                        "Signaturinformation ska inte bli ett förslag.",
+                        ItemCategory.SCHOOL,
+                        "student.admissions.enskede@engelska.se")),
                 List.of()));
 
         TextAnalysisResponseDTO response = service.analyze(request);
 
+        assertThat(response.summary()).isEqualTo("Information om skolstarten för årskurs 4 på IES Enskede.");
+        assertThat(response.language()).isEqualTo("mixed");
+
+        assertThat(response.events()).hasSize(3);
         assertThat(response.events())
                 .extracting(TextAnalysisEventDTO::title)
-                .contains(
+                .containsExactly(
                         "Första skoldagen på IES Enskede",
                         "Ordinarie skolschema börjar",
                         "Gratis provperiod för Junior Club");
+
+        TextAnalysisEventDTO firstDay = response.events().get(0);
+        assertThat(firstDay.startDateTime()).isEqualTo("2026-08-17T08:30:00+02:00");
+        assertThat(firstDay.endDateTime()).isEqualTo("2026-08-17T10:30:00+02:00");
+        assertThat(firstDay.allDay()).isFalse();
+        assertThat(firstDay.location()).isEqualTo("Junior Schools lekplats, IES Enskede");
+        assertThat(firstDay.category()).isEqualTo(ItemCategory.SCHOOL);
+        assertThat(firstDay.urgency()).isEqualTo(Urgency.MEDIUM);
+
+        TextAnalysisEventDTO regularSchedule = response.events().get(1);
+        assertThat(regularSchedule.startDateTime()).isEqualTo("2026-08-18");
+        assertThat(regularSchedule.endDateTime()).isNull();
+        assertThat(regularSchedule.allDay()).isTrue();
+
+        TextAnalysisEventDTO juniorClubTrial = response.events().get(2);
+        assertThat(juniorClubTrial.startDateTime()).isEqualTo("2026-08-18");
+        assertThat(juniorClubTrial.endDateTime()).isEqualTo("2026-08-21");
+        assertThat(juniorClubTrial.allDay()).isTrue();
+
+        assertThat(response.todos()).hasSize(3);
         assertThat(response.todos())
                 .extracting(TextAnalysisTodoDTO::title)
-                .contains(
+                .containsExactly(
                         "Fyll i formuläret för specialkost",
                         "Skicka in blankett för modersmålsundervisning",
                         "Kontrollera SchoolSoft regelbundet");
+
+        TextAnalysisTodoDTO specialDiet = response.todos().get(0);
+        assertThat(specialDiet.deadline()).isNull();
+        assertThat(specialDiet.deadlineType()).isEqualTo(DeadlineType.AS_SOON_AS_POSSIBLE);
+        assertThat(specialDiet.category()).isEqualTo(ItemCategory.SCHOOL);
+        assertThat(specialDiet.urgency()).isEqualTo(Urgency.HIGH);
+
+        TextAnalysisTodoDTO homeLanguage = response.todos().get(1);
+        assertThat(homeLanguage.deadline()).isNull();
+        assertThat(homeLanguage.deadlineType()).isEqualTo(DeadlineType.AS_SOON_AS_POSSIBLE);
+        assertThat(homeLanguage.urgency()).isEqualTo(Urgency.MEDIUM);
+
+        TextAnalysisTodoDTO schoolSoft = response.todos().get(2);
+        assertThat(schoolSoft.deadline()).isNull();
+        assertThat(schoolSoft.deadlineType()).isEqualTo(DeadlineType.RECURRING);
+        assertThat(schoolSoft.recurrence()).isNotNull();
+        assertThat(schoolSoft.recurrence().frequency()).isEqualTo(RecurrenceFrequency.WEEKLY);
+        assertThat(schoolSoft.recurrence().interval()).isEqualTo(1);
+
+        assertThat(response.informationalItems()).hasSize(1);
         assertThat(response.informationalItems())
-                .extracting(item -> item.title())
-                .contains("Junior Club kostar 3 500 kr per termin");
+                .extracting(TextAnalysisInformationalItemDTO::title)
+                .containsExactly("Junior Club kostar 3 500 kr per termin");
+
+        assertThat(response.warnings())
+                .extracting(TextAnalysisWarningDTO::code)
+                .containsExactly("YEAR_INFERRED", "MISSING_EXACT_DEADLINE");
     }
 
     @Test

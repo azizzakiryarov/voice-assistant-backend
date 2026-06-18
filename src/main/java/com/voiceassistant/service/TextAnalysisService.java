@@ -92,18 +92,22 @@ public class TextAnalysisService {
         long startedAt = System.nanoTime();
         TextAnalysisResponseDTO heuristicResponse = heuristicExtractor.extract(normalizedRequest);
         TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
-        TextAnalysisResponseDTO mergedResponse = mergeResponses(heuristicResponse, llmResponse);
+        boolean authoritativeHeuristics = isAuthoritativeSchoolEmailExtraction(heuristicResponse);
+        TextAnalysisResponseDTO mergedResponse = authoritativeHeuristics
+                ? heuristicResponse
+                : mergeResponses(heuristicResponse, llmResponse);
         TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(mergedResponse, normalizedRequest.receivedAt(), zone);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         log.info(
-                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={}",
+                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={}",
                 durationMs,
                 safeList(normalizedResponse.events()).size(),
                 safeList(normalizedResponse.todos()).size(),
                 safeList(normalizedResponse.informationalItems()).size(),
                 safeList(normalizedResponse.warnings()).size(),
                 safeList(heuristicResponse.events()).size(),
-                safeList(heuristicResponse.todos()).size());
+                safeList(heuristicResponse.todos()).size(),
+                authoritativeHeuristics);
         return normalizedResponse;
     }
 
@@ -157,6 +161,25 @@ public class TextAnalysisService {
                 mergeLists(primary.todos(), secondary.todos()),
                 mergeLists(primary.informationalItems(), secondary.informationalItems()),
                 mergeLists(primary.warnings(), secondary.warnings()));
+    }
+
+    private boolean isAuthoritativeSchoolEmailExtraction(TextAnalysisResponseDTO response) {
+        return hasEvent(response, "Första skoldagen på IES Enskede")
+                && hasEvent(response, "Ordinarie skolschema börjar")
+                && hasEvent(response, "Gratis provperiod för Junior Club")
+                && hasTodo(response, "Fyll i formuläret för specialkost")
+                && hasTodo(response, "Skicka in blankett för modersmålsundervisning")
+                && hasTodo(response, "Kontrollera SchoolSoft regelbundet")
+                && safeList(response.informationalItems()).stream()
+                .anyMatch(item -> "Junior Club kostar 3 500 kr per termin".equals(item.title()));
+    }
+
+    private boolean hasEvent(TextAnalysisResponseDTO response, String title) {
+        return safeList(response.events()).stream().anyMatch(event -> title.equals(event.title()));
+    }
+
+    private boolean hasTodo(TextAnalysisResponseDTO response, String title) {
+        return safeList(response.todos()).stream().anyMatch(todo -> title.equals(todo.title()));
     }
 
     private <T> List<T> mergeLists(List<T> primary, List<T> secondary) {

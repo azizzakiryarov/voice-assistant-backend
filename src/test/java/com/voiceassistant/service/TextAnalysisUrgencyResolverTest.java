@@ -32,4 +32,15 @@ class TextAnalysisUrgencyResolverTest {
 
         assertThat(urgency).isEqualTo(Urgency.LOW);
     }
+
+    @Test
+    void asSoonAsPossibleWithoutSafetyContextIsMediumUrgency() {
+        Urgency urgency = resolver.resolveTodoUrgency(
+                Urgency.LOW,
+                DeadlineType.AS_SOON_AS_POSSIBLE,
+                ItemCategory.SCHOOL,
+                "Skicka tillbaka blanketten så snart som möjligt.");
+
+        assertThat(urgency).isEqualTo(Urgency.MEDIUM);
+    }
 }

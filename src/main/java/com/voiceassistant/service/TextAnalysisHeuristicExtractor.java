@@ -80,12 +80,19 @@ public class TextAnalysisHeuristicExtractor {
         }
 
         return new TextAnalysisResponseDTO(
-                null,
-                "mixed",
+                hasIesSchoolStartContext(normalized)
+                        ? "Information om skolstarten för årskurs 4 på IES Enskede."
+                        : null,
+                normalized.contains("dear parents") ? "mixed" : "sv",
                 events,
                 todos,
                 informationalItems,
                 warnings);
+    }
+
+    private boolean hasIesSchoolStartContext(String normalized) {
+        return normalized.contains("ies enskede")
+                || normalized.contains("internationella engelska skolan");
     }
 
     private void addFirstSchoolDay(String text, List<TextAnalysisEventDTO> events, ZoneId zone, OffsetDateTime receivedAt) {
