@@ -41,6 +41,7 @@ public class TextAnalysisService {
     public static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Stockholm");
 
     private final OpenAIService openAIService;
+    private final TextAnalysisInputReducer inputReducer;
     private final TextAnalysisPostProcessor postProcessor;
     private final TextAnalysisDateResolver dateResolver;
     private final AppUserService appUserService;
@@ -51,6 +52,7 @@ public class TextAnalysisService {
 
     public TextAnalysisService(
             OpenAIService openAIService,
+            TextAnalysisInputReducer inputReducer,
             TextAnalysisPostProcessor postProcessor,
             TextAnalysisDateResolver dateResolver,
             AppUserService appUserService,
@@ -59,6 +61,7 @@ public class TextAnalysisService {
             GoogleCalendarService googleCalendarService,
             GoogleTasksService googleTasksService) {
         this.openAIService = openAIService;
+        this.inputReducer = inputReducer;
         this.postProcessor = postProcessor;
         this.dateResolver = dateResolver;
         this.appUserService = appUserService;
@@ -70,16 +73,21 @@ public class TextAnalysisService {
 
     public TextAnalysisResponseDTO analyze(TextAnalysisRequestDTO request) {
         TextAnalysisRequestDTO normalizedRequest = normalizeRequest(request);
+        TextAnalysisInputReducer.Result reducedInput = inputReducer.reduce(normalizedRequest);
+        TextAnalysisRequestDTO llmRequest = reducedInput.request();
         ZoneId zone = parseZone(normalizedRequest.timeZone());
 
         log.info(
-                "Starting text analysis sourceType={} textLength={} titlePresent={}",
+                "Starting text analysis sourceType={} textLength={} llmTextLength={} inputReduced={} reductionRules={} titlePresent={}",
                 normalizedRequest.sourceType(),
                 normalizedRequest.text().length(),
+                llmRequest.text().length(),
+                reducedInput.reduced(),
+                reducedInput.appliedRules(),
                 normalizedRequest.title() != null && !normalizedRequest.title().isBlank());
 
         long startedAt = System.nanoTime();
-        TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(normalizedRequest);
+        TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
         TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(llmResponse, normalizedRequest.receivedAt(), zone);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         log.info(

@@ -19,8 +19,11 @@ import com.voiceassistant.repository.TodoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -51,6 +54,7 @@ class TextAnalysisServiceTest {
         TextAnalysisDateResolver dateResolver = new TextAnalysisDateResolver();
         service = new TextAnalysisService(
                 openAIService,
+                new TextAnalysisInputReducer(),
                 new TextAnalysisPostProcessor(dateResolver, new TextAnalysisUrgencyResolver()),
                 dateResolver,
                 appUserService,
@@ -93,6 +97,32 @@ class TextAnalysisServiceTest {
         assertThat(response.events()).hasSize(1);
         verify(todoRepository, never()).save(any());
         verify(meetingRepository, never()).save(any());
+    }
+
+    @Test
+    void analyzeSendsReducedInputToLlmForLongBilingualText() throws IOException {
+        String email = loadEmailFixture();
+        TextAnalysisRequestDTO request = new TextAnalysisRequestDTO(
+                "Mejl från skolan",
+                email,
+                SourceType.EMAIL,
+                OffsetDateTime.parse("2026-06-17T15:00:00+02:00"),
+                "Europe/Stockholm");
+
+        when(openAIService.analyzeText(any())).thenReturn(new TextAnalysisResponseDTO(
+                "Skolstart",
+                "sv",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()));
+
+        service.analyze(request);
+
+        verify(openAIService).analyzeText(org.mockito.ArgumentMatchers.argThat(reducedRequest ->
+                reducedRequest.text().length() < email.length()
+                        && reducedRequest.text().contains("Första skoldagen")
+                        && !reducedRequest.text().contains("Dear Parents")));
     }
 
     @Test
@@ -158,5 +188,11 @@ class TextAnalysisServiceTest {
 
         assertThat(response.createdTodos()).hasSize(1);
         verify(todoRepository).save(org.mockito.ArgumentMatchers.argThat(todo -> todo.getOwner() == user));
+    }
+
+    private String loadEmailFixture() throws IOException {
+        try (var inputStream = getClass().getResourceAsStream("/text-analysis/ies-enskede-year4-email.txt")) {
+            return new String(Objects.requireNonNull(inputStream).readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }
