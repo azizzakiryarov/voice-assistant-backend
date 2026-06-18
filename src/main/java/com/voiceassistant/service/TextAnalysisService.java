@@ -91,15 +91,30 @@ public class TextAnalysisService {
 
         long startedAt = System.nanoTime();
         TextAnalysisResponseDTO heuristicResponse = heuristicExtractor.extract(normalizedRequest);
-        TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
         boolean authoritativeHeuristics = isAuthoritativeSchoolEmailExtraction(heuristicResponse);
-        TextAnalysisResponseDTO mergedResponse = authoritativeHeuristics
-                ? heuristicResponse
-                : mergeResponses(heuristicResponse, llmResponse);
+        if (authoritativeHeuristics) {
+            TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(heuristicResponse, normalizedRequest.receivedAt(), zone);
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
+            log.info(
+                    "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={} llmSkipped={}",
+                    durationMs,
+                    safeList(normalizedResponse.events()).size(),
+                    safeList(normalizedResponse.todos()).size(),
+                    safeList(normalizedResponse.informationalItems()).size(),
+                    safeList(normalizedResponse.warnings()).size(),
+                    safeList(heuristicResponse.events()).size(),
+                    safeList(heuristicResponse.todos()).size(),
+                    true,
+                    true);
+            return normalizedResponse;
+        }
+
+        TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
+        TextAnalysisResponseDTO mergedResponse = mergeResponses(heuristicResponse, llmResponse);
         TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(mergedResponse, normalizedRequest.receivedAt(), zone);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         log.info(
-                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={}",
+                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={} llmSkipped={}",
                 durationMs,
                 safeList(normalizedResponse.events()).size(),
                 safeList(normalizedResponse.todos()).size(),
@@ -107,7 +122,8 @@ public class TextAnalysisService {
                 safeList(normalizedResponse.warnings()).size(),
                 safeList(heuristicResponse.events()).size(),
                 safeList(heuristicResponse.todos()).size(),
-                authoritativeHeuristics);
+                false,
+                false);
         return normalizedResponse;
     }
 

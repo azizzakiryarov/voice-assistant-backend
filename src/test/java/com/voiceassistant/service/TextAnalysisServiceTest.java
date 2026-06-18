@@ -105,7 +105,11 @@ class TextAnalysisServiceTest {
 
     @Test
     void analyzeSendsReducedInputToLlmForLongBilingualText() throws IOException {
-        String email = loadEmailFixture();
+        String email = loadEmailFixture()
+                .replace("Modersmål", "Språkval")
+                .replace("modersmål", "språkval")
+                .replace("Home Language", "Language Choice")
+                .replace("home language", "language choice");
         TextAnalysisRequestDTO request = new TextAnalysisRequestDTO(
                 "Mejl från skolan",
                 email,
@@ -237,6 +241,7 @@ class TextAnalysisServiceTest {
         assertThat(response.warnings())
                 .extracting(TextAnalysisWarningDTO::code)
                 .containsExactly("YEAR_INFERRED", "MISSING_EXACT_DEADLINE");
+        verify(openAIService, never()).analyzeText(any());
     }
 
     @Test
