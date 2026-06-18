@@ -42,6 +42,7 @@ public class TextAnalysisService {
 
     private final OpenAIService openAIService;
     private final TextAnalysisInputReducer inputReducer;
+    private final TextAnalysisHeuristicExtractor heuristicExtractor;
     private final TextAnalysisPostProcessor postProcessor;
     private final TextAnalysisDateResolver dateResolver;
     private final AppUserService appUserService;
@@ -53,6 +54,7 @@ public class TextAnalysisService {
     public TextAnalysisService(
             OpenAIService openAIService,
             TextAnalysisInputReducer inputReducer,
+            TextAnalysisHeuristicExtractor heuristicExtractor,
             TextAnalysisPostProcessor postProcessor,
             TextAnalysisDateResolver dateResolver,
             AppUserService appUserService,
@@ -62,6 +64,7 @@ public class TextAnalysisService {
             GoogleTasksService googleTasksService) {
         this.openAIService = openAIService;
         this.inputReducer = inputReducer;
+        this.heuristicExtractor = heuristicExtractor;
         this.postProcessor = postProcessor;
         this.dateResolver = dateResolver;
         this.appUserService = appUserService;
@@ -87,16 +90,20 @@ public class TextAnalysisService {
                 normalizedRequest.title() != null && !normalizedRequest.title().isBlank());
 
         long startedAt = System.nanoTime();
+        TextAnalysisResponseDTO heuristicResponse = heuristicExtractor.extract(normalizedRequest);
         TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
-        TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(llmResponse, normalizedRequest.receivedAt(), zone);
+        TextAnalysisResponseDTO mergedResponse = mergeResponses(heuristicResponse, llmResponse);
+        TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(mergedResponse, normalizedRequest.receivedAt(), zone);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         log.info(
-                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={}",
+                "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={}",
                 durationMs,
                 safeList(normalizedResponse.events()).size(),
                 safeList(normalizedResponse.todos()).size(),
                 safeList(normalizedResponse.informationalItems()).size(),
-                safeList(normalizedResponse.warnings()).size());
+                safeList(normalizedResponse.warnings()).size(),
+                safeList(heuristicResponse.events()).size(),
+                safeList(heuristicResponse.todos()).size());
         return normalizedResponse;
     }
 
@@ -140,6 +147,26 @@ public class TextAnalysisService {
                 : request.timeZone().trim();
         parseZone(timeZone);
         return new TextAnalysisRequestDTO(title, request.text().trim(), sourceType, receivedAt, timeZone);
+    }
+
+    private TextAnalysisResponseDTO mergeResponses(TextAnalysisResponseDTO primary, TextAnalysisResponseDTO secondary) {
+        return new TextAnalysisResponseDTO(
+                hasText(secondary.summary()) ? secondary.summary() : primary.summary(),
+                hasText(secondary.language()) ? secondary.language() : primary.language(),
+                mergeLists(primary.events(), secondary.events()),
+                mergeLists(primary.todos(), secondary.todos()),
+                mergeLists(primary.informationalItems(), secondary.informationalItems()),
+                mergeLists(primary.warnings(), secondary.warnings()));
+    }
+
+    private <T> List<T> mergeLists(List<T> primary, List<T> secondary) {
+        List<T> merged = new ArrayList<>(safeList(primary));
+        merged.addAll(safeList(secondary));
+        return merged;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private ZoneId parseZone(String value) {

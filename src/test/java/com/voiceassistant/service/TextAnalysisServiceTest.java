@@ -55,6 +55,7 @@ class TextAnalysisServiceTest {
         service = new TextAnalysisService(
                 openAIService,
                 new TextAnalysisInputReducer(),
+                new TextAnalysisHeuristicExtractor(dateResolver),
                 new TextAnalysisPostProcessor(dateResolver, new TextAnalysisUrgencyResolver()),
                 dateResolver,
                 appUserService,
@@ -123,6 +124,43 @@ class TextAnalysisServiceTest {
                 reducedRequest.text().length() < email.length()
                         && reducedRequest.text().contains("Första skoldagen")
                         && !reducedRequest.text().contains("Dear Parents")));
+    }
+
+    @Test
+    void analyzeComplementsWeakLlmResultWithHeuristicSchoolEmailItems() throws IOException {
+        String email = loadEmailFixture();
+        TextAnalysisRequestDTO request = new TextAnalysisRequestDTO(
+                "Mejl från skolan",
+                email,
+                SourceType.EMAIL,
+                OffsetDateTime.parse("2026-06-17T15:00:00+02:00"),
+                "Europe/Stockholm");
+
+        when(openAIService.analyzeText(any())).thenReturn(new TextAnalysisResponseDTO(
+                "Skolstart",
+                "sv",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()));
+
+        TextAnalysisResponseDTO response = service.analyze(request);
+
+        assertThat(response.events())
+                .extracting(TextAnalysisEventDTO::title)
+                .contains(
+                        "Första skoldagen på IES Enskede",
+                        "Ordinarie skolschema börjar",
+                        "Gratis provperiod för Junior Club");
+        assertThat(response.todos())
+                .extracting(TextAnalysisTodoDTO::title)
+                .contains(
+                        "Fyll i formuläret för specialkost",
+                        "Skicka in blankett för modersmålsundervisning",
+                        "Kontrollera SchoolSoft regelbundet");
+        assertThat(response.informationalItems())
+                .extracting(item -> item.title())
+                .contains("Junior Club kostar 3 500 kr per termin");
     }
 
     @Test
