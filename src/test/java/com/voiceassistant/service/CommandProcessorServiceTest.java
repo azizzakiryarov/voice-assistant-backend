@@ -148,6 +148,26 @@ class CommandProcessorServiceTest {
     }
 
     @Test
+    void previewCommandBuildsMeetingReviewWhenAiReturnsUnknownForRussianCalendarSpeech() {
+        String transcription = "создай мете или митинг на следующей неделе во вторник получается 23 июня 2026 года с 10 00 до 12 00 тонировка машины";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        unknownPreview.setMessage("Kunde inte tolka kommandot");
+
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(preview.getTranscription()).isEqualTo(transcription);
+        assertThat(preview.getMeeting()).isNotNull();
+        assertThat(preview.getMeeting().getTitle()).isEqualTo("Тонировка машины");
+        assertThat(preview.getMeeting().getStartTimestamp()).isEqualTo(LocalDateTime.of(2026, 6, 23, 10, 0));
+        assertThat(preview.getMeeting().getEndTimestamp()).isEqualTo(LocalDateTime.of(2026, 6, 23, 12, 0));
+        assertThat(preview.getMeeting().getParticipants()).hasSize(1);
+    }
+
+    @Test
     void approveMeetingSavesMeetingEvenWhenGoogleCalendarSyncFails() throws IOException {
         Participants participant = new Participants();
         participant.setName("Peter Andersson");

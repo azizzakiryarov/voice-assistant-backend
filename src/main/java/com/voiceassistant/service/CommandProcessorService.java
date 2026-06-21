@@ -40,6 +40,10 @@ public class CommandProcessorService {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Stockholm");
     private static final Pattern CLOCK_TIME_PATTERN = Pattern.compile(
             "(?:\\bklockan\\b|\\bkl\\.?)\\s+([a-zåäö0-9]{1,8})(?:\\s*(?::|\\.)\\s*([a-zåäö0-9]{1,8})|\\s+([a-zåäö0-9]{1,8}))?");
+    private static final Pattern RUSSIAN_DATE_PATTERN = Pattern.compile(
+            "(\\d{1,2})\\s+(январ[ья]|феврал[ья]|март[а]?|апрел[ья]|ма[йя]|июн[ья]|июл[ья]|август[а]?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])\\s+(\\d{4})(?:\\s+года)?");
+    private static final Pattern RUSSIAN_TIME_RANGE_PATTERN = Pattern.compile(
+            "(?:^|\\s)с\\s+(\\d{1,2})(?:[:.]?\\s*(\\d{2}))?\\s+до\\s+(\\d{1,2})(?:[:.]?\\s*(\\d{2}))?(?:\\s|$)");
     private static final Map<String, Integer> SWEDISH_TIME_WORDS = Map.ofEntries(
             Map.entry("noll", 0),
             Map.entry("oll", 0),
@@ -80,6 +84,31 @@ public class CommandProcessorService {
             "lordag", DayOfWeek.SATURDAY,
             "söndag", DayOfWeek.SUNDAY,
             "sondag", DayOfWeek.SUNDAY);
+    private static final Map<String, Integer> RUSSIAN_MONTHS = Map.ofEntries(
+            Map.entry("января", 1),
+            Map.entry("январь", 1),
+            Map.entry("февраля", 2),
+            Map.entry("февраль", 2),
+            Map.entry("марта", 3),
+            Map.entry("март", 3),
+            Map.entry("апреля", 4),
+            Map.entry("апрель", 4),
+            Map.entry("мая", 5),
+            Map.entry("май", 5),
+            Map.entry("июня", 6),
+            Map.entry("июнь", 6),
+            Map.entry("июля", 7),
+            Map.entry("июль", 7),
+            Map.entry("августа", 8),
+            Map.entry("август", 8),
+            Map.entry("сентября", 9),
+            Map.entry("сентябрь", 9),
+            Map.entry("октября", 10),
+            Map.entry("октябрь", 10),
+            Map.entry("ноября", 11),
+            Map.entry("ноябрь", 11),
+            Map.entry("декабря", 12),
+            Map.entry("декабрь", 12));
 
     private final OpenAIService openAIService;
     private final GoogleCalendarService googleCalendarService;
@@ -153,17 +182,17 @@ public class CommandProcessorService {
             return Optional.empty();
         }
 
-        Optional<LocalDate> date = resolveSwedishDate(normalized);
-        Optional<LocalTime> time = resolveClockTime(normalized);
-        if (date.isEmpty() || time.isEmpty()) {
+        Optional<LocalDate> date = resolveVoiceCommandDate(normalized);
+        Optional<TimeRange> timeRange = resolveVoiceCommandTimeRange(normalized);
+        if (date.isEmpty() || timeRange.isEmpty()) {
             return Optional.empty();
         }
 
-        LocalDateTime start = LocalDateTime.of(date.get(), time.get());
+        LocalDateTime start = LocalDateTime.of(date.get(), timeRange.get().start());
         MeetingRequestDTO meeting = new MeetingRequestDTO();
         meeting.setTitle(resolveMeetingTitle(normalized));
         meeting.setStartTimestamp(start);
-        meeting.setEndTimestamp(start.plusHours(1));
+        meeting.setEndTimestamp(resolveEndTimestamp(date.get(), timeRange.get(), start));
         meeting.setParticipants(List.of(new Participants()));
 
         VoiceCommandPreviewDTO preview = new VoiceCommandPreviewDTO();
@@ -178,8 +207,77 @@ public class CommandProcessorService {
                 || normalized.contains("händelse")
                 || normalized.contains("handelse")
                 || normalized.contains("kalender")
+                || normalized.contains("митинг")
+                || normalized.contains("мете")
+                || normalized.contains("встреч")
+                || normalized.contains("календар")
                 || (normalized.contains("gmail")
                         && (normalized.contains("skapa") || normalized.contains("lägg") || normalized.contains("lagg")));
+    }
+
+    private Optional<LocalDate> resolveVoiceCommandDate(String normalized) {
+        Optional<LocalDate> russianDate = resolveRussianDate(normalized);
+        return russianDate.isPresent() ? russianDate : resolveSwedishDate(normalized);
+    }
+
+    private Optional<TimeRange> resolveVoiceCommandTimeRange(String normalized) {
+        Optional<TimeRange> russianTimeRange = resolveRussianTimeRange(normalized);
+        if (russianTimeRange.isPresent()) {
+            return russianTimeRange;
+        }
+
+        return resolveClockTime(normalized)
+                .map(start -> new TimeRange(start, start.plusHours(1)));
+    }
+
+    private LocalDateTime resolveEndTimestamp(LocalDate date, TimeRange timeRange, LocalDateTime start) {
+        return timeRange.end().isAfter(timeRange.start())
+                ? LocalDateTime.of(date, timeRange.end())
+                : start.plusHours(1);
+    }
+
+    private Optional<LocalDate> resolveRussianDate(String normalized) {
+        Matcher matcher = RUSSIAN_DATE_PATTERN.matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+
+        int day = Integer.parseInt(matcher.group(1));
+        Integer month = RUSSIAN_MONTHS.get(matcher.group(2));
+        int year = Integer.parseInt(matcher.group(3));
+        if (month == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(LocalDate.of(year, month, day));
+    }
+
+    private Optional<TimeRange> resolveRussianTimeRange(String normalized) {
+        Matcher matcher = RUSSIAN_TIME_RANGE_PATTERN.matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+
+        Optional<LocalTime> start = parseNumericTime(matcher.group(1), matcher.group(2));
+        Optional<LocalTime> end = parseNumericTime(matcher.group(3), matcher.group(4));
+        if (start.isEmpty() || end.isEmpty() || !end.get().isAfter(start.get())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new TimeRange(start.get(), end.get()));
+    }
+
+    private Optional<LocalTime> parseNumericTime(String hourValue, String minuteValue) {
+        try {
+            int hour = Integer.parseInt(hourValue);
+            int minute = minuteValue == null || minuteValue.isBlank() ? 0 : Integer.parseInt(minuteValue);
+            if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                return Optional.empty();
+            }
+            return Optional.of(LocalTime.of(hour, minute));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private Optional<LocalDate> resolveSwedishDate(String normalized) {
@@ -242,7 +340,16 @@ public class CommandProcessorService {
         if (normalized.contains("möte") || normalized.contains("mote")) {
             return "Möte";
         }
+        if (normalized.contains("тонировка машины")) {
+            return "Тонировка машины";
+        }
+        if (normalized.contains("митинг") || normalized.contains("мете") || normalized.contains("встреч")) {
+            return "Митинг";
+        }
         return "Händelse";
+    }
+
+    private record TimeRange(LocalTime start, LocalTime end) {
     }
 
     public ResponseEntity<Object> approveCommand(VoiceCommandApprovalRequestDTO request) {
