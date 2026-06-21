@@ -82,6 +82,11 @@ app:
       num-ctx: ${TEXT_ANALYSIS_OLLAMA_NUM_CTX:${OLLAMA_NUM_CTX:4096}}
       num-thread: ${TEXT_ANALYSIS_OLLAMA_NUM_THREAD:${OLLAMA_NUM_THREAD:4}}
       num-predict: ${TEXT_ANALYSIS_OLLAMA_NUM_PREDICT:${OLLAMA_NUM_PREDICT:2600}}
+  form-scan:
+    max-bytes: ${FORM_SCAN_MAX_BYTES:10485760}
+    vision:
+      base-url: ${FORM_SCAN_VISION_BASE_URL:http://ollama-svc:11434}
+      model: ${FORM_SCAN_VISION_MODEL:moondream}
 
 # CORS
 web:

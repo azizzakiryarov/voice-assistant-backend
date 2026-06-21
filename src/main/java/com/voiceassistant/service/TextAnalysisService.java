@@ -132,21 +132,30 @@ public class TextAnalysisService {
         AppUser owner = appUserService.getCurrentUser();
         List<MeetingResponseDTO> createdEvents = new ArrayList<>();
         List<TodoItemResponseDTO> createdTodos = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
         int googleCalendarSyncedCount = 0;
         int googleTasksSyncedCount = 0;
 
         for (TextAnalysisEventDTO event : safeList(request.events())) {
             Meeting saved = saveEvent(owner, event);
             createdEvents.add(toMeetingResponse(saved));
-            if (syncCalendarEvent(event)) {
+            if (!googleCalendarService.hasCurrentUserCalendarToken()) {
+                warnings.add("Google Kalender är inte ansluten. Händelsen sparades bara lokalt.");
+            } else if (syncCalendarEvent(event)) {
                 googleCalendarSyncedCount++;
+            } else {
+                warnings.add("Google Kalender kunde inte skapa händelsen. Den sparades bara lokalt.");
             }
         }
 
         for (TextAnalysisTodoDTO todo : safeList(request.todos())) {
             TodoItem saved = saveTodo(owner, todo);
-            if (googleTasksService.createTaskIfConnected(saved)) {
+            if (!googleTasksService.hasCurrentUserTasksToken()) {
+                warnings.add("Google Tasks är inte ansluten. Uppgiften sparades bara lokalt.");
+            } else if (googleTasksService.createTaskIfConnected(saved)) {
                 googleTasksSyncedCount++;
+            } else {
+                warnings.add("Google Tasks kunde inte skapa uppgiften. Den sparades bara lokalt.");
             }
             createdTodos.add(toTodoResponse(saved));
         }
@@ -155,7 +164,8 @@ public class TextAnalysisService {
                 createdEvents,
                 createdTodos,
                 googleCalendarSyncedCount,
-                googleTasksSyncedCount);
+                googleTasksSyncedCount,
+                List.copyOf(warnings));
     }
 
     private TextAnalysisRequestDTO normalizeRequest(TextAnalysisRequestDTO request) {

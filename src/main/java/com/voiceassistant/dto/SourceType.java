@@ -6,5 +6,6 @@ public enum SourceType {
     MESSAGE,
     WEB,
     NOTE,
+    FORM_SCAN,
     OTHER
 }

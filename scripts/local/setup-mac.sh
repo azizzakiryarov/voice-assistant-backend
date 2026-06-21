@@ -12,6 +12,7 @@ POSTGRES_USER="voiceassistant"
 POSTGRES_PASSWORD="voiceassistant"
 POSTGRES_DATABASE="voiceassistant"
 OLLAMA_MODEL="${OLLAMA_CHAT_MODEL:-llama3.2:1b}"
+VISION_MODEL="${FORM_SCAN_VISION_MODEL:-moondream}"
 
 info() {
   printf '\n==> %s\n' "$1"
@@ -83,6 +84,10 @@ curl --fail --silent --show-error http://localhost:11434/api/tags >/dev/null 2>&
 if [[ "${SKIP_OLLAMA_MODEL_PULL:-0}" != "1" ]]; then
   info "Downloading Ollama model $OLLAMA_MODEL"
   ollama pull "$OLLAMA_MODEL"
+  if [[ "$VISION_MODEL" != "$OLLAMA_MODEL" ]]; then
+    info "Downloading vision model $VISION_MODEL for form scanning"
+    ollama pull "$VISION_MODEL"
+  fi
 else
   printf 'Skipping Ollama model download because SKIP_OLLAMA_MODEL_PULL=1.\n'
 fi
