@@ -4,6 +4,7 @@ import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.dto.MeetingRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
+import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
@@ -17,8 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
 
@@ -119,6 +122,29 @@ class CommandProcessorServiceTest {
         assertThat(response.getBody()).isEqualTo(Map.of("message", "Unknown command type"));
         verify(todoRepository, never()).save(org.mockito.ArgumentMatchers.any());
         verify(meetingRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void previewCommandBuildsMeetingReviewWhenAiReturnsUnknownForSwedishCalendarSpeech() {
+        String transcription = "jag har ett möte nästa tisdag klockan 10 noll jag ska tunna rotor det blir omgjort och skapa ett händelse i gmail";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        unknownPreview.setMessage("Kunde inte tolka kommandot");
+
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        LocalDate expectedDate = LocalDate.now(TextAnalysisService.DEFAULT_ZONE)
+                .with(TemporalAdjusters.next(DayOfWeek.TUESDAY));
+
+        assertThat(preview.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(preview.getTranscription()).isEqualTo(transcription);
+        assertThat(preview.getMeeting()).isNotNull();
+        assertThat(preview.getMeeting().getTitle()).isEqualTo("Möte");
+        assertThat(preview.getMeeting().getStartTimestamp()).isEqualTo(expectedDate.atTime(10, 0));
+        assertThat(preview.getMeeting().getEndTimestamp()).isEqualTo(expectedDate.atTime(11, 0));
+        assertThat(preview.getMeeting().getParticipants()).hasSize(1);
     }
 
     @Test
