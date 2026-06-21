@@ -36,9 +36,11 @@ public class TranscriptionController {
     }
 
     @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> transcribeAudio(@RequestParam("file") MultipartFile audioFile) {
+    public ResponseEntity<?> transcribeAudio(
+            @RequestParam("file") MultipartFile audioFile,
+            @RequestParam(value = "language", required = false) String language) {
         try {
-            TranscriptionResponseDTO response = transcriptionService.transcribeAudio(audioFile);
+            TranscriptionResponseDTO response = transcriptionService.transcribeAudio(audioFile, language);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -46,9 +48,11 @@ public class TranscriptionController {
     }
 
     @PostMapping(value = "/voice-command/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> previewVoiceCommand(@RequestParam("file") MultipartFile audioFile) {
+    public ResponseEntity<?> previewVoiceCommand(
+            @RequestParam("file") MultipartFile audioFile,
+            @RequestParam(value = "language", required = false) String language) {
         try {
-            TranscriptionResponseDTO transcription = transcriptionService.transcribeAudio(audioFile);
+            TranscriptionResponseDTO transcription = transcriptionService.transcribeAudio(audioFile, language);
             VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription.getTranscription());
             preview.setExtractedEmail(transcription.getExtractedEmail());
             return ResponseEntity.ok(preview);

@@ -11,6 +11,7 @@ spring:
 transcription:
   whisper:
     base-url: ${WHISPER_BASE_URL:http://localhost:9000}
+    language: ${WHISPER_LANGUAGE:sv}
 
 google:
   calendar:

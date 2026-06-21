@@ -32,7 +32,7 @@ class TranscriptionServiceRealAudioIT {
                 Files.readAllBytes(path)
         );
 
-        TranscriptionService service = new TranscriptionService(new RestTemplate(), whisperBaseUrl);
+        TranscriptionService service = new TranscriptionService(new RestTemplate(), whisperBaseUrl, "sv");
 
         TranscriptionResponseDTO response = service.transcribeAudio(audioFile);
 

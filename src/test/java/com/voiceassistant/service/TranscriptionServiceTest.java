@@ -32,7 +32,7 @@ class TranscriptionServiceTest {
     void setUp() {
         restTemplate = mock(RestTemplate.class);
         audioFile = mock(MultipartFile.class);
-        transcriptionService = new TranscriptionService(restTemplate, "http://localhost:9000");
+        transcriptionService = new TranscriptionService(restTemplate, "http://localhost:9000", "sv");
     }
 
     @Test
@@ -50,14 +50,52 @@ class TranscriptionServiceTest {
     }
 
     @Test
-    void transcribeAudioDoesNotForceSwedishLanguage() throws Exception {
+    void transcribeAudioSendsConfiguredDefaultLanguage() throws Exception {
+        when(audioFile.isEmpty()).thenReturn(false);
+        when(audioFile.getBytes()).thenReturn("audio".getBytes(StandardCharsets.UTF_8));
+        when(audioFile.getOriginalFilename()).thenReturn("sample.webm");
+        when(restTemplate.postForEntity(eq("http://localhost:9000/v1/audio/transcriptions"), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>("{\"text\":\"Lägg till att köpa mjölk imorgon\"}", HttpStatus.OK));
+
+        transcriptionService.transcribeAudio(audioFile);
+
+        ArgumentCaptor<HttpEntity<MultiValueMap<String, Object>>> requestCaptor = ArgumentCaptor.captor();
+        verify(restTemplate).postForEntity(
+                eq("http://localhost:9000/v1/audio/transcriptions"),
+                requestCaptor.capture(),
+                eq(String.class));
+
+        assertThat(requestCaptor.getValue().getBody()).containsEntry("language", java.util.List.of("sv"));
+    }
+
+    @Test
+    void transcribeAudioUsesRequestedLanguageWhenProvided() throws Exception {
         when(audioFile.isEmpty()).thenReturn(false);
         when(audioFile.getBytes()).thenReturn("audio".getBytes(StandardCharsets.UTF_8));
         when(audioFile.getOriginalFilename()).thenReturn("sample.webm");
         when(restTemplate.postForEntity(eq("http://localhost:9000/v1/audio/transcriptions"), any(), eq(String.class)))
                 .thenReturn(new ResponseEntity<>("{\"text\":\"добавь купить молоко завтра\"}", HttpStatus.OK));
 
-        transcriptionService.transcribeAudio(audioFile);
+        transcriptionService.transcribeAudio(audioFile, "ru");
+
+        ArgumentCaptor<HttpEntity<MultiValueMap<String, Object>>> requestCaptor = ArgumentCaptor.captor();
+        verify(restTemplate).postForEntity(
+                eq("http://localhost:9000/v1/audio/transcriptions"),
+                requestCaptor.capture(),
+                eq(String.class));
+
+        assertThat(requestCaptor.getValue().getBody()).containsEntry("language", java.util.List.of("ru"));
+    }
+
+    @Test
+    void transcribeAudioCanLeaveLanguageOnWhisperAutodetect() throws Exception {
+        when(audioFile.isEmpty()).thenReturn(false);
+        when(audioFile.getBytes()).thenReturn("audio".getBytes(StandardCharsets.UTF_8));
+        when(audioFile.getOriginalFilename()).thenReturn("sample.webm");
+        when(restTemplate.postForEntity(eq("http://localhost:9000/v1/audio/transcriptions"), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>("{\"text\":\"hello\"}", HttpStatus.OK));
+
+        transcriptionService.transcribeAudio(audioFile, "auto");
 
         ArgumentCaptor<HttpEntity<MultiValueMap<String, Object>>> requestCaptor = ArgumentCaptor.captor();
         verify(restTemplate).postForEntity(

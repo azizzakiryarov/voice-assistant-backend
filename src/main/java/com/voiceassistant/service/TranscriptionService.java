@@ -23,12 +23,17 @@ import static com.voiceassistant.mapper.Mapper.extractTranslatedText;
 public class TranscriptionService {
 
     private static final String WHISPER_PATH = "/v1/audio/transcriptions";
+    private static final Pattern SUPPORTED_LANGUAGE_PATTERN = Pattern.compile("^(sv|en|ru)$");
     private final String whisperBaseUrl;
+    private final String defaultLanguage;
     private final RestTemplate restTemplate;
+
     public TranscriptionService(RestTemplate restTemplate,
-                                @Value("${transcription.whisper.base-url}") String whisperBaseUrl) {
+                                @Value("${transcription.whisper.base-url}") String whisperBaseUrl,
+                                @Value("${transcription.whisper.language:sv}") String defaultLanguage) {
         this.restTemplate = restTemplate;
         this.whisperBaseUrl = whisperBaseUrl;
+        this.defaultLanguage = normalizeLanguage(defaultLanguage);
     }
 
     // Regular expression för att hitta e-postadresser
@@ -36,6 +41,10 @@ public class TranscriptionService {
             Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
 
     public TranscriptionResponseDTO transcribeAudio(MultipartFile audioFile) {
+        return transcribeAudio(audioFile, null);
+    }
+
+    public TranscriptionResponseDTO transcribeAudio(MultipartFile audioFile, String requestedLanguage) {
         try {
             if (audioFile == null || audioFile.isEmpty()) {
                 throw new AudioTranslationException("Audio file is missing or empty");
@@ -51,6 +60,10 @@ public class TranscriptionService {
                     return Optional.ofNullable(audioFile.getOriginalFilename()).orElse("audio.wav");
                 }
             });
+            String language = resolveLanguage(requestedLanguage);
+            if (language != null) {
+                body.add("language", language);
+            }
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
             ResponseEntity<String> response = restTemplate.postForEntity(whisperBaseUrl + WHISPER_PATH, requestEntity, String.class);
@@ -71,6 +84,26 @@ public class TranscriptionService {
         } catch (RestClientException e) {
             throw new AudioTranslationException("Error calling local Whisper service", e);
         }
+    }
+
+    private String resolveLanguage(String requestedLanguage) {
+        if (requestedLanguage != null && "auto".equalsIgnoreCase(requestedLanguage.trim())) {
+            return null;
+        }
+        String normalizedRequestedLanguage = normalizeLanguage(requestedLanguage);
+        return normalizedRequestedLanguage != null ? normalizedRequestedLanguage : defaultLanguage;
+    }
+
+    private static String normalizeLanguage(String language) {
+        if (language == null || language.isBlank() || "auto".equalsIgnoreCase(language.trim())) {
+            return null;
+        }
+
+        String normalizedLanguage = language.trim().toLowerCase();
+        if (!SUPPORTED_LANGUAGE_PATTERN.matcher(normalizedLanguage).matches()) {
+            throw new AudioTranslationException("Unsupported transcription language: " + language);
+        }
+        return normalizedLanguage;
     }
 
     // Extrahera e-postadress från transkriberingen
