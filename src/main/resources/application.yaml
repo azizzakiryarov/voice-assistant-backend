@@ -84,9 +84,11 @@ app:
       num-predict: ${TEXT_ANALYSIS_OLLAMA_NUM_PREDICT:${OLLAMA_NUM_PREDICT:2600}}
   form-scan:
     max-bytes: ${FORM_SCAN_MAX_BYTES:10485760}
-    vision:
-      base-url: ${FORM_SCAN_VISION_BASE_URL:http://ollama-svc:11434}
-      model: ${FORM_SCAN_VISION_MODEL:moondream}
+    ocr:
+      command: ${FORM_SCAN_OCR_COMMAND:tesseract}
+      languages: ${FORM_SCAN_OCR_LANGUAGES:swe+eng}
+      page-segmentation-mode: ${FORM_SCAN_OCR_PSM:6}
+      timeout-seconds: ${FORM_SCAN_OCR_TIMEOUT_SECONDS:60}
 
 # CORS
 web:

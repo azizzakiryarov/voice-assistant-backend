@@ -16,9 +16,9 @@ directory:
 The script installs PostgreSQL 14, Ollama, Python 3.11, FFmpeg, Java 21 and
 Node.js; starts PostgreSQL and Ollama as user services; creates the local-only
 `voiceassistant` role and database; creates the Whisper virtual environment;
-and downloads `llama3.2:1b` plus the `moondream` vision model used for form scans.
+installs Tesseract OCR with Swedish/English language data and downloads `llama3.2:1b`.
 
-The model downloads require several GB of disk space. To provision the rest first, run:
+The model download requires disk space. To provision the rest first, run:
 
 ```bash
 SKIP_OLLAMA_MODEL_PULL=1 ./scripts/local/setup-mac.sh
@@ -61,15 +61,10 @@ Whisper stays running in the background. Its PID and logs are stored in
 
 ## Form scanning
 
-Form scanning sends the image from the backend to the locally configured Ollama
-vision model (`FORM_SCAN_VISION_MODEL`, default `moondream`) for OCR. The image
-is deleted immediately after OCR; only the extracted text and review draft are
-saved in PostgreSQL. On the Raspberry Pi, pull the same model into Ollama before
-using the feature:
-
-```bash
-ollama pull moondream
-```
+Form scanning runs Tesseract OCR in the backend container, then sends only the
+extracted text to the existing local Ollama chat model for interpretation. The
+image is deleted immediately after OCR; only the extracted text and review draft
+are saved in PostgreSQL. No separate vision model is kept in Ollama memory.
 
 Use a well-lit, straight-on JPEG, PNG or WebP image. The scanner accepts up to
 10 MB and always requires user approval before it creates local records, Google

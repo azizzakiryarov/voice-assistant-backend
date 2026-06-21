@@ -18,6 +18,3 @@ google:
 
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
-  form-scan:
-    vision:
-      base-url: ${FORM_SCAN_VISION_BASE_URL:http://localhost:11434}

@@ -8,7 +8,8 @@ RUN mvn -B -ntp -DskipTests package
 
 FROM docker.io/library/eclipse-temurin:21-jdk-alpine
 WORKDIR /app
-RUN apk upgrade --no-cache libcrypto3 libssl3 openssl
+RUN apk upgrade --no-cache libcrypto3 libssl3 openssl \
+    && apk add --no-cache tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-swe
 COPY --from=build /build/target/voice-assistant-0.0.1-SNAPSHOT.jar /app/app.jar
 ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport"
 EXPOSE 8081

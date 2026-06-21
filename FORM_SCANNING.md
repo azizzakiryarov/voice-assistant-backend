@@ -1,9 +1,10 @@
 # Form scanning
 
 `POST /api/form-scans` accepts a logged-in user's JPEG, PNG, or WebP image up
-to 10 MB. The backend writes it to a temporary file, submits it to the
-configured local Ollama vision model for OCR, then deletes the file in all
-cases. The image itself is never stored in PostgreSQL.
+to 10 MB. The backend writes it to a temporary file, runs local Tesseract OCR,
+then deletes the file in all cases. The image itself is never stored in
+PostgreSQL. The existing Ollama chat model receives only the extracted OCR text
+to create the structured draft.
 
 The resulting `FormScan` row is scoped to the authenticated user and stores
 the OCR text, structured draft, form type, confidence, and review status.
@@ -11,21 +12,16 @@ the OCR text, structured draft, form type, confidence, and review status.
 edited todos and events. It reuses the existing local persistence and Google
 Tasks/Calendar integration. Nothing is created during OCR or draft generation.
 
-## Vision-model configuration
+## OCR configuration
 
-The backend reads these environment variables only; no API key is exposed to
-the browser:
+The backend includes Tesseract plus Swedish and English language data. Its OCR
+behaviour can be configured without exposing any API key to the browser:
 
 ```text
-FORM_SCAN_VISION_BASE_URL=http://ollama-svc:11434
-FORM_SCAN_VISION_MODEL=moondream
-```
-
-Pull the configured model on the host that owns Ollama. For the Raspberry Pi's
-existing Ollama deployment this is normally:
-
-```bash
-ollama pull moondream
+FORM_SCAN_OCR_COMMAND=tesseract
+FORM_SCAN_OCR_LANGUAGES=swe+eng
+FORM_SCAN_OCR_PSM=6
+FORM_SCAN_OCR_TIMEOUT_SECONDS=60
 ```
 
 For lower-quality photos or handwritten fields, the response includes warnings
