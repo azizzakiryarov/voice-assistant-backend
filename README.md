@@ -31,3 +31,6 @@ The default configuration expects these services and settings:
 - `GOOGLE_CALENDAR_CLIENT_SECRET`
 
 For local development outside Docker/Kubernetes, override the service URLs with environment variables or Spring properties.
+
+For the complete macOS dependency setup and local run commands, see
+[LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md).
