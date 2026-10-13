@@ -67,7 +67,7 @@ public class TextAnalysisController {
     public ResponseEntity<?> approve(@RequestBody TextAnalysisApprovalRequestDTO request) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(textAnalysisService.approve(request));
-        } catch (RuntimeException e) {
+        } catch (TextAnalysisException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }

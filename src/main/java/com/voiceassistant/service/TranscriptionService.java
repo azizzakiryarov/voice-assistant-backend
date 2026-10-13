@@ -2,6 +2,7 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.dto.TranscriptionResponseDTO;
 import com.voiceassistant.exception.AudioTranslationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -19,6 +20,7 @@ import java.util.regex.Pattern;
 
 import static com.voiceassistant.mapper.Mapper.extractTranslatedText;
 
+@Slf4j
 @Service
 public class TranscriptionService {
 
@@ -77,7 +79,8 @@ public class TranscriptionService {
                 transcriptionResponseDTO.setExtractedEmail(extractedEmailAddressForVerification);
                 return transcriptionResponseDTO;
             } else {
-                throw new AudioTranslationException("Failed to translate audio. Status: " + response.getStatusCode() + ", Response: " + response.getBody());
+                log.warn("Whisper transcription failed status={} body={}", response.getStatusCode(), response.getBody());
+                throw new AudioTranslationException("Failed to transcribe audio");
             }
         } catch (IOException e) {
             throw new AudioTranslationException("Error processing audio file", e);

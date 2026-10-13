@@ -1,5 +1,6 @@
 package com.voiceassistant.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
@@ -45,9 +47,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ErrorDetails> handleGlobalException(
             Exception exception, WebRequest request) {
 
+        // Internal details stay in the server log; the client only gets a generic message.
+        log.error("Unhandled exception for {}", request.getDescription(false), exception);
         ErrorDetails errorDetails = new ErrorDetails(
                 LocalDateTime.now(),
-                exception.getMessage(),
+                "An unexpected error occurred",
                 request.getDescription(false));
 
         return new ResponseEntity<>(errorDetails, HttpStatus.INTERNAL_SERVER_ERROR);

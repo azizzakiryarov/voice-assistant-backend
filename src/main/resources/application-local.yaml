@@ -19,3 +19,13 @@ google:
 
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+web:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
