@@ -1,8 +1,10 @@
-# CLAUDE.md — Productivity Planner
+# CLAUDE.md — Röstassistent
+
+> Todos, röstkommandon och Google-synk för ditt konto.
 
 ## Vad projektet gör
 
-Productivity Planner är en webbapp där vem som helst med ett Google-konto kan fånga
+Röstassistent är en webbapp där vem som helst med ett Google-konto kan fånga
 uppgifter och möten med **röst, inklistrad text eller ett foto av ett pappersformulär**,
 granska vad assistenten föreslår och sedan synka det godkända till **Google Tasks** och
 **Google Calendar**.
@@ -23,7 +25,7 @@ produkt som andra kan använda:
 1. Onboarding för nya användare: logga in med Google, koppla Tasks/Calendar, tydlig
    integritetstext.
 2. Planeringsvy: dagens/veckans uppgifter och möten på ett ställe, prioritering och
-   förslag på när uppgifter kan göras (det som gör det till en *planner*).
+   förslag på när uppgifter kan göras (första steget mot en produktivitetsplanerare).
 3. Stabil drift på publik URL med HTTPS, backup och enkel övervakning.
 4. README med skärmdumpar, arkitekturdiagram och instruktion för att köra lokalt.
 
