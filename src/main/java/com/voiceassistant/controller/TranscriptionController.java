@@ -5,6 +5,7 @@ import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TranscriptionResponseDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
+import com.voiceassistant.exception.AudioTranslationException;
 import com.voiceassistant.service.CommandProcessorService;
 import com.voiceassistant.service.TranscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -28,11 +29,7 @@ public class TranscriptionController {
 
     @PostMapping("/text")
     public ResponseEntity<?> processTextCommand(@Valid @RequestBody TodoItemRequestDTO todoItemRequestDTO) {
-        try {
-            return commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), todoItemRequestDTO.getDueDate(), null);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(java.util.Map.of("message", "An error occurred: " + e.getMessage()));
-        }
+        return commandProcessorService.processCommand(todoItemRequestDTO.getDescription(), todoItemRequestDTO.getDueDate(), null);
     }
 
     @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -42,7 +39,7 @@ public class TranscriptionController {
         try {
             TranscriptionResponseDTO response = transcriptionService.transcribeAudio(audioFile, language);
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
+        } catch (AudioTranslationException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
@@ -56,7 +53,7 @@ public class TranscriptionController {
             VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription.getTranscription());
             preview.setExtractedEmail(transcription.getExtractedEmail());
             return ResponseEntity.ok(preview);
-        } catch (Exception e) {
+        } catch (AudioTranslationException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
@@ -65,7 +62,7 @@ public class TranscriptionController {
     public ResponseEntity<?> approveVoiceCommand(@RequestBody VoiceCommandApprovalRequestDTO request) {
         try {
             return commandProcessorService.approveCommand(request);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
