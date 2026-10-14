@@ -19,6 +19,7 @@ import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
+import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.MeetingRepository;
 import com.voiceassistant.repository.TodoRepository;
@@ -256,7 +257,7 @@ public class TextAnalysisService {
         todoItem.setDueDate(parseTodoDueDate(todo));
         todoItem.setCompleted(false);
         todoItem.setOwner(owner);
-        todoItem.setSyncStatus("LOCAL");
+        todoItem.setSyncStatus(SyncStatus.LOCAL.name());
         return todoRepository.save(todoItem);
     }
 

@@ -5,6 +5,7 @@ import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.exception.ResourceNotFoundException;
 import com.voiceassistant.model.AppUser;
+import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.TodoRepository;
 import org.modelmapper.ModelMapper;
@@ -38,7 +39,7 @@ public class TodoItemServiceImpl implements TodoItemService {
             todoItem.setDueDate(LocalDate.now(AppTimeZone.DEFAULT));
         }
         todoItem.setOwner(owner);
-        todoItem.setSyncStatus("LOCAL");
+        todoItem.setSyncStatus(SyncStatus.LOCAL.name());
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return modelMapper.map(savedTodoItem, TodoItemResponseDTO.class);
     }

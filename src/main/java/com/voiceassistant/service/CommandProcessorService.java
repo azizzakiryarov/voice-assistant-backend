@@ -12,6 +12,7 @@ import com.voiceassistant.mapper.Mapper;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
+import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.MeetingRepository;
 import com.voiceassistant.repository.TodoRepository;
@@ -374,7 +375,7 @@ public class CommandProcessorService {
         todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now(AppTimeZone.DEFAULT));
         todoItem.setCompleted(request.isCompleted());
         todoItem.setOwner(owner);
-        todoItem.setSyncStatus("LOCAL");
+        todoItem.setSyncStatus(SyncStatus.LOCAL.name());
 
         TodoItem saved = todoRepository.save(todoItem);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
@@ -429,7 +430,7 @@ public class CommandProcessorService {
             return ResponseEntity.badRequest().body(Map.of("message", "Todo details are incomplete"));
         }
         todoItem.setOwner(appUserService.getCurrentUser());
-        todoItem.setSyncStatus("LOCAL");
+        todoItem.setSyncStatus(SyncStatus.LOCAL.name());
         TodoItem savedTodoItem = todoRepository.save(todoItem);
         return ResponseEntity.ok(savedTodoItem);
     }
