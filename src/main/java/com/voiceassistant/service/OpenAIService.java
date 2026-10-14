@@ -3,6 +3,7 @@ package com.voiceassistant.service;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.TextAnalysisRequestDTO;
 import com.voiceassistant.dto.TextAnalysisResponseDTO;
 import com.voiceassistant.exception.TextAnalysisException;
@@ -201,7 +202,7 @@ public class OpenAIService {
         fallback.setMessage("Kunde inte tolka kommandot");
 
         try {
-            String prompt = String.format(STRUCTURED_PROMPT, LocalDate.now()) + text;
+            String prompt = String.format(STRUCTURED_PROMPT, LocalDate.now(AppTimeZone.DEFAULT)) + text;
             String response = Objects.requireNonNull(chatClient.prompt()
                             .user(prompt)
                             .call()

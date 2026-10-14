@@ -1,5 +1,6 @@
 package com.voiceassistant.service;
 
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.MeetingRequestDTO;
 import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
@@ -22,7 +23,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Locale;
@@ -37,7 +37,6 @@ import static com.voiceassistant.service.TranscriptionService.extractEmailAddres
 @Service
 public class CommandProcessorService {
 
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Stockholm");
     private static final Pattern CLOCK_TIME_PATTERN = Pattern.compile(
             "(?:\\bklockan\\b|\\bkl\\.?)\\s+([a-zåäö0-9]{1,8})(?:\\s*(?::|\\.)\\s*([a-zåäö0-9]{1,8})|\\s+([a-zåäö0-9]{1,8}))?");
     private static final Pattern RUSSIAN_DATE_PATTERN = Pattern.compile(
@@ -137,7 +136,7 @@ public class CommandProcessorService {
             if (dueDate != null) {
                 todoItem.setDueDate(dueDate);
             } else if (todoItem.getDueDate() == null) {
-                todoItem.setDueDate(LocalDate.now());
+                todoItem.setDueDate(LocalDate.now(AppTimeZone.DEFAULT));
             }
             return processTodoItem(todoItem);
         } else if (analysis instanceof Meeting meeting) {
@@ -281,7 +280,7 @@ public class CommandProcessorService {
     }
 
     private Optional<LocalDate> resolveSwedishDate(String normalized) {
-        LocalDate today = LocalDate.now(DEFAULT_ZONE);
+        LocalDate today = LocalDate.now(AppTimeZone.DEFAULT);
         if (normalized.contains("övermorgon") || normalized.contains("overmorgon")) {
             return Optional.of(today.plusDays(2));
         }
@@ -372,7 +371,7 @@ public class CommandProcessorService {
         AppUser owner = appUserService.getCurrentUser();
         TodoItem todoItem = new TodoItem();
         todoItem.setDescription(request.getDescription());
-        todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now());
+        todoItem.setDueDate(request.getDueDate() != null ? request.getDueDate() : LocalDate.now(AppTimeZone.DEFAULT));
         todoItem.setCompleted(request.isCompleted());
         todoItem.setOwner(owner);
         todoItem.setSyncStatus("LOCAL");

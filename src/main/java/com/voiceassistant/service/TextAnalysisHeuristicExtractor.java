@@ -1,5 +1,6 @@
 package com.voiceassistant.service;
 
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.DeadlineType;
 import com.voiceassistant.dto.ItemCategory;
 import com.voiceassistant.dto.RecurrenceFrequency;
@@ -247,7 +248,7 @@ public class TextAnalysisHeuristicExtractor {
 
     private ZoneId parseZone(String value) {
         if (value == null || value.isBlank()) {
-            return TextAnalysisService.DEFAULT_ZONE;
+            return AppTimeZone.DEFAULT;
         }
         return ZoneId.of(value);
     }

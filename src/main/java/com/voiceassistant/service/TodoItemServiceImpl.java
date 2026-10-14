@@ -1,5 +1,6 @@
 package com.voiceassistant.service;
 
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.exception.ResourceNotFoundException;
@@ -34,7 +35,7 @@ public class TodoItemServiceImpl implements TodoItemService {
             throw new IllegalArgumentException("Title are required fields");
         }
         if (todoItem.getDueDate() == null) {
-            todoItem.setDueDate(LocalDate.now());
+            todoItem.setDueDate(LocalDate.now(AppTimeZone.DEFAULT));
         }
         todoItem.setOwner(owner);
         todoItem.setSyncStatus("LOCAL");
