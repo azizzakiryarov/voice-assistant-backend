@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voiceassistant.dto.GoogleTasksSyncResultDTO;
 import com.voiceassistant.model.AppUser;
+import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.TodoRepository;
 import com.voiceassistant.service.AppUserService;
@@ -107,7 +108,7 @@ public class GoogleTasksService {
             todoItem.setGoogleTaskId(textOrNull(created, "id"));
             todoItem.setGooglePosition(textOrNull(created, "position"));
             todoItem.setGoogleUpdatedAt(parseOffsetDateTime(textOrNull(created, "updated")));
-            todoItem.setSyncStatus("GOOGLE_TASKS_CREATED");
+            todoItem.setSyncStatus(SyncStatus.GOOGLE_TASKS_CREATED.name());
             todoRepository.save(todoItem);
             return true;
         } catch (Exception e) {
@@ -168,7 +169,7 @@ public class GoogleTasksService {
         todoItem.setCompleted("completed".equals(textOrNull(task, "status")));
         todoItem.setGooglePosition(textOrNull(task, "position"));
         todoItem.setGoogleUpdatedAt(parseOffsetDateTime(textOrNull(task, "updated")));
-        todoItem.setSyncStatus("GOOGLE_TASKS_IMPORTED");
+        todoItem.setSyncStatus(SyncStatus.GOOGLE_TASKS_IMPORTED.name());
         todoRepository.save(todoItem);
 
         if (existing) {

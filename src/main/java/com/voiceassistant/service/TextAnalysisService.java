@@ -3,6 +3,7 @@ package com.voiceassistant.service;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.DeadlineType;
 import com.voiceassistant.dto.MeetingResponseDTO;
 import com.voiceassistant.dto.SourceType;
@@ -18,6 +19,7 @@ import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
+import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.MeetingRepository;
 import com.voiceassistant.repository.TodoRepository;
@@ -38,7 +40,6 @@ import java.util.List;
 @Service
 public class TextAnalysisService {
 
-    public static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Stockholm");
 
     private final OpenAIService openAIService;
     private final TextAnalysisInputReducer inputReducer;
@@ -171,9 +172,9 @@ public class TextAnalysisService {
     private TextAnalysisRequestDTO normalizeRequest(TextAnalysisRequestDTO request) {
         String title = request.title() == null || request.title().isBlank() ? null : request.title().trim();
         SourceType sourceType = request.sourceType() == null ? SourceType.OTHER : request.sourceType();
-        OffsetDateTime receivedAt = request.receivedAt() == null ? OffsetDateTime.now(DEFAULT_ZONE) : request.receivedAt();
+        OffsetDateTime receivedAt = request.receivedAt() == null ? OffsetDateTime.now(AppTimeZone.DEFAULT) : request.receivedAt();
         String timeZone = request.timeZone() == null || request.timeZone().isBlank()
-                ? DEFAULT_ZONE.getId()
+                ? AppTimeZone.DEFAULT.getId()
                 : request.timeZone().trim();
         parseZone(timeZone);
         return new TextAnalysisRequestDTO(title, request.text().trim(), sourceType, receivedAt, timeZone);
@@ -232,10 +233,10 @@ public class TextAnalysisService {
         }
 
         boolean allDay = Boolean.TRUE.equals(event.allDay());
-        LocalDateTime start = dateResolver.parseDateTime(event.startDateTime(), DEFAULT_ZONE, false);
+        LocalDateTime start = dateResolver.parseDateTime(event.startDateTime(), AppTimeZone.DEFAULT, false);
         LocalDateTime end = event.endDateTime() == null || event.endDateTime().isBlank()
                 ? defaultEnd(start, allDay)
-                : dateResolver.parseDateTime(event.endDateTime(), DEFAULT_ZONE, allDay);
+                : dateResolver.parseDateTime(event.endDateTime(), AppTimeZone.DEFAULT, allDay);
 
         Meeting meeting = new Meeting();
         meeting.setTitle(event.title().trim());
@@ -256,7 +257,7 @@ public class TextAnalysisService {
         todoItem.setDueDate(parseTodoDueDate(todo));
         todoItem.setCompleted(false);
         todoItem.setOwner(owner);
-        todoItem.setSyncStatus("LOCAL");
+        todoItem.setSyncStatus(SyncStatus.LOCAL.name());
         return todoRepository.save(todoItem);
     }
 
@@ -265,7 +266,7 @@ public class TextAnalysisService {
         if (todo.deadline() == null || !dateResolver.exactDeadlineAllowed(deadlineType)) {
             return null;
         }
-        return dateResolver.parseDate(todo.deadline(), DEFAULT_ZONE);
+        return dateResolver.parseDate(todo.deadline(), AppTimeZone.DEFAULT);
     }
 
     private String buildTodoDescription(TextAnalysisTodoDTO todo) {
@@ -300,10 +301,10 @@ public class TextAnalysisService {
                 .setLocation(event.location());
 
         boolean allDay = Boolean.TRUE.equals(event.allDay());
-        LocalDateTime start = dateResolver.parseDateTime(event.startDateTime(), DEFAULT_ZONE, false);
+        LocalDateTime start = dateResolver.parseDateTime(event.startDateTime(), AppTimeZone.DEFAULT, false);
         LocalDateTime end = event.endDateTime() == null || event.endDateTime().isBlank()
                 ? defaultEnd(start, allDay)
-                : dateResolver.parseDateTime(event.endDateTime(), DEFAULT_ZONE, allDay);
+                : dateResolver.parseDateTime(event.endDateTime(), AppTimeZone.DEFAULT, allDay);
 
         if (allDay) {
             googleEvent.setStart(new EventDateTime().setDate(new DateTime(start.toLocalDate().toString())));
@@ -311,16 +312,16 @@ public class TextAnalysisService {
         } else {
             googleEvent.setStart(new EventDateTime()
                     .setDateTime(toGoogleDateTime(start))
-                    .setTimeZone(DEFAULT_ZONE.getId()));
+                    .setTimeZone(AppTimeZone.DEFAULT.getId()));
             googleEvent.setEnd(new EventDateTime()
                     .setDateTime(toGoogleDateTime(end))
-                    .setTimeZone(DEFAULT_ZONE.getId()));
+                    .setTimeZone(AppTimeZone.DEFAULT.getId()));
         }
         return googleEvent;
     }
 
     private DateTime toGoogleDateTime(LocalDateTime value) {
-        Date date = Date.from(value.atZone(DEFAULT_ZONE).toInstant());
+        Date date = Date.from(value.atZone(AppTimeZone.DEFAULT).toInstant());
         return new DateTime(date);
     }
 

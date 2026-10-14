@@ -2,6 +2,7 @@ package com.voiceassistant.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.FormScanApprovalRequestDTO;
 import com.voiceassistant.dto.FormScanApprovalResponseDTO;
 import com.voiceassistant.dto.FormScanResponseDTO;
@@ -76,8 +77,8 @@ public class FormScanService {
                     "Scanned paper form",
                     extractedText,
                     SourceType.FORM_SCAN,
-                    OffsetDateTime.now(TextAnalysisService.DEFAULT_ZONE),
-                    TextAnalysisService.DEFAULT_ZONE.getId()));
+                    OffsetDateTime.now(AppTimeZone.DEFAULT),
+                    AppTimeZone.DEFAULT.getId()));
             FormScanInterpreter.Interpretation interpretation = interpreter.interpret(extractedText, analysis);
 
             FormScan formScan = new FormScan();

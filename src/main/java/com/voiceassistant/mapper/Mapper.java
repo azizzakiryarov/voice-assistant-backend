@@ -7,12 +7,12 @@ import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.exception.AudioTranslationException;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,13 +27,13 @@ public class Mapper {
 
         EventDateTime start = new EventDateTime()
                 .setDateTime(convertLocalDateTimeToGoogleDateTime(meeting.getStartTimestamp()))
-                .setTimeZone("Europe/Stockholm");
+                .setTimeZone(AppTimeZone.DEFAULT.getId());
 
         newEvent.setStart(start);
 
         EventDateTime end = new EventDateTime()
                 .setDateTime(convertLocalDateTimeToGoogleDateTime(meeting.getEndTimestamp()))
-                .setTimeZone("Europe/Stockholm");
+                .setTimeZone(AppTimeZone.DEFAULT.getId());
         newEvent.setEnd(end);
 
         if (email != null && !email.isBlank()) {
@@ -45,7 +45,7 @@ public class Mapper {
     }
 
     public static DateTime convertLocalDateTimeToGoogleDateTime(LocalDateTime localDateTime) {
-        Date date = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+        Date date = Date.from(localDateTime.atZone(AppTimeZone.DEFAULT).toInstant());
         return new DateTime(date);
     }
 

@@ -1,5 +1,6 @@
 package com.voiceassistant.service;
 
+import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.dto.MeetingRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
@@ -135,7 +136,7 @@ class CommandProcessorServiceTest {
 
         VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
 
-        LocalDate expectedDate = LocalDate.now(TextAnalysisService.DEFAULT_ZONE)
+        LocalDate expectedDate = LocalDate.now(AppTimeZone.DEFAULT)
                 .with(TemporalAdjusters.next(DayOfWeek.TUESDAY));
 
         assertThat(preview.getType()).isEqualTo(VoiceCommandType.MEETING);
