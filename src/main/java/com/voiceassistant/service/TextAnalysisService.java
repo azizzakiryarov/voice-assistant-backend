@@ -17,6 +17,7 @@ import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.exception.TextAnalysisException;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.integration.google.service.GoogleTasksService;
+import com.voiceassistant.mapper.Mapper;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.SyncStatus;
@@ -139,7 +140,7 @@ public class TextAnalysisService {
 
         for (TextAnalysisEventDTO event : safeList(request.events())) {
             Meeting saved = saveEvent(owner, event);
-            createdEvents.add(toMeetingResponse(saved));
+            createdEvents.add(Mapper.toMeetingResponse(saved));
             if (!googleCalendarService.hasCurrentUserCalendarToken()) {
                 warnings.add("Google Kalender är inte ansluten. Händelsen sparades bara lokalt.");
             } else if (syncCalendarEvent(event)) {
@@ -158,7 +159,7 @@ public class TextAnalysisService {
             } else {
                 warnings.add("Google Tasks kunde inte skapa uppgiften. Den sparades bara lokalt.");
             }
-            createdTodos.add(toTodoResponse(saved));
+            createdTodos.add(Mapper.toTodoResponse(saved));
         }
 
         return new TextAnalysisApprovalResponseDTO(
@@ -290,6 +291,7 @@ public class TextAnalysisService {
             googleCalendarService.createEvent(toGoogleEvent(event));
             return true;
         } catch (IOException | RuntimeException e) {
+            log.warn("Google Calendar sync failed for text analysis event cause={}", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -323,30 +325,6 @@ public class TextAnalysisService {
     private DateTime toGoogleDateTime(LocalDateTime value) {
         Date date = Date.from(value.atZone(AppTimeZone.DEFAULT).toInstant());
         return new DateTime(date);
-    }
-
-    private MeetingResponseDTO toMeetingResponse(Meeting meeting) {
-        MeetingResponseDTO response = new MeetingResponseDTO();
-        response.setId(meeting.getId());
-        response.setTitle(meeting.getTitle());
-        response.setStartTimestamp(meeting.getStartTimestamp());
-        response.setEndTimestamp(meeting.getEndTimestamp());
-        response.setParticipants(meeting.getParticipants());
-        return response;
-    }
-
-    private TodoItemResponseDTO toTodoResponse(TodoItem todoItem) {
-        TodoItemResponseDTO response = new TodoItemResponseDTO();
-        response.setId(todoItem.getId());
-        response.setDescription(todoItem.getDescription());
-        response.setDueDate(todoItem.getDueDate());
-        response.setCompleted(todoItem.isCompleted());
-        response.setGoogleTaskId(todoItem.getGoogleTaskId());
-        response.setGoogleTaskListId(todoItem.getGoogleTaskListId());
-        response.setGooglePosition(todoItem.getGooglePosition());
-        response.setGoogleUpdatedAt(todoItem.getGoogleUpdatedAt());
-        response.setSyncStatus(todoItem.getSyncStatus());
-        return response;
     }
 
     private <T> List<T> safeList(List<T> value) {

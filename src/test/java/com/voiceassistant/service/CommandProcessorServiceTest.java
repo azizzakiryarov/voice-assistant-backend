@@ -1,8 +1,15 @@
 package com.voiceassistant.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.dto.MeetingRequestDTO;
+import com.voiceassistant.dto.MeetingResponseDTO;
+import com.voiceassistant.dto.TodoItemRequestDTO;
+import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
@@ -15,6 +22,7 @@ import com.voiceassistant.repository.MeetingRepository;
 import com.voiceassistant.repository.TodoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -193,14 +201,57 @@ class CommandProcessorServiceTest {
         when(meetingRepository.save(any(Meeting.class))).thenReturn(savedMeeting);
         doThrow(new IOException("Google unavailable")).when(googleCalendarService).createEvent(any());
 
-        ResponseEntity<Object> response = commandProcessorService.approveCommand(request);
+        Logger logger = (Logger) LoggerFactory.getLogger(CommandProcessorService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        ResponseEntity<Object> response;
+        try {
+            response = commandProcessorService.approveCommand(request);
+        } finally {
+            logger.detachAppender(appender);
+        }
 
+        assertThat(appender.list)
+                .filteredOn(event -> event.getLevel() == Level.WARN)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .singleElement()
+                .satisfies(message -> {
+                    assertThat(message).contains("id=99", "IOException");
+                    assertThat(message).doesNotContain("Peter Andersson");
+                });
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isInstanceOf(VoiceCommandApprovalResponseDTO.class);
         VoiceCommandApprovalResponseDTO body = (VoiceCommandApprovalResponseDTO) response.getBody();
         assertThat(body.getType()).isEqualTo(VoiceCommandType.MEETING);
         assertThat(body.isGoogleSynced()).isFalse();
-        assertThat(body.getSaved()).isSameAs(savedMeeting);
+        assertThat(body.getSaved()).isInstanceOf(MeetingResponseDTO.class);
+        assertThat(((MeetingResponseDTO) body.getSaved()).getId()).isEqualTo(99L);
         verify(meetingRepository).save(any(Meeting.class));
+    }
+
+    @Test
+    void approveTodoReturnsDtoInsteadOfEntity() {
+        TodoItemRequestDTO todoRequest = new TodoItemRequestDTO();
+        todoRequest.setDescription("Köp mjölk");
+
+        VoiceCommandApprovalRequestDTO request = new VoiceCommandApprovalRequestDTO();
+        request.setType(VoiceCommandType.TODO);
+        request.setTodo(todoRequest);
+
+        when(todoRepository.save(any(TodoItem.class))).thenAnswer(invocation -> {
+            TodoItem saved = invocation.getArgument(0);
+            saved.setId(7L);
+            return saved;
+        });
+
+        ResponseEntity<Object> response = commandProcessorService.approveCommand(request);
+
+        VoiceCommandApprovalResponseDTO body = (VoiceCommandApprovalResponseDTO) response.getBody();
+        assertThat(body.getSaved()).isInstanceOf(TodoItemResponseDTO.class);
+        TodoItemResponseDTO saved = (TodoItemResponseDTO) body.getSaved();
+        assertThat(saved.getId()).isEqualTo(7L);
+        assertThat(saved.getDescription()).isEqualTo("Köp mjölk");
+        assertThat(saved.getSyncStatus()).isEqualTo("LOCAL");
     }
 }

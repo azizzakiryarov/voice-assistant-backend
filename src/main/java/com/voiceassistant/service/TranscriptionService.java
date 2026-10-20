@@ -79,7 +79,10 @@ public class TranscriptionService {
                 transcriptionResponseDTO.setExtractedEmail(extractedEmailAddressForVerification);
                 return transcriptionResponseDTO;
             } else {
-                log.warn("Whisper transcription failed status={} body={}", response.getStatusCode(), response.getBody());
+                // The body can contain transcribed speech, so only its size is logged.
+                log.warn("Whisper transcription failed status={} bodyLength={}",
+                        response.getStatusCode(),
+                        response.getBody() == null ? 0 : response.getBody().length());
                 throw new AudioTranslationException("Failed to transcribe audio");
             }
         } catch (IOException e) {

@@ -2,9 +2,13 @@ package com.voiceassistant.service;
 
 import com.voiceassistant.dto.TranscriptionResponseDTO;
 import com.voiceassistant.exception.AudioTranslationException;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -113,5 +117,29 @@ class TranscriptionServiceTest {
         assertThatThrownBy(() -> transcriptionService.transcribeAudio(audioFile))
                 .isInstanceOf(AudioTranslationException.class)
                 .hasMessageContaining("missing or empty");
+    }
+
+    @Test
+    void failedTranscriptionDoesNotLogResponseBody() throws Exception {
+        when(audioFile.isEmpty()).thenReturn(false);
+        when(audioFile.getBytes()).thenReturn("audio".getBytes(StandardCharsets.UTF_8));
+        when(restTemplate.postForEntity(eq("http://localhost:9000/v1/audio/transcriptions"), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>("{\"text\":\"hemlig transkription\"}", HttpStatus.BAD_GATEWAY));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(TranscriptionService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThatThrownBy(() -> transcriptionService.transcribeAudio(audioFile))
+                    .isInstanceOf(AudioTranslationException.class);
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertThat(appender.list).isNotEmpty();
+        assertThat(appender.list)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .noneMatch(message -> message.contains("hemlig transkription"));
     }
 }
