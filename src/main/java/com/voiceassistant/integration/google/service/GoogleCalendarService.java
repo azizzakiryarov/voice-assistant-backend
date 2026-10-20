@@ -41,8 +41,8 @@ public class GoogleCalendarService {
     public void createEvent(Event event) throws IOException {
         Calendar calendarService = currentUserCalendarClient();
         Event executed = calendarService.events().insert("primary", event).execute();
-        log.info("Event created: {}", executed.getSummary());
-        log.info("Event link: {}", executed.getHtmlLink());
+        // Titles and links can contain personal data, so only the id is logged.
+        log.info("Google Calendar event created id={}", executed.getId());
     }
 
     public Event updateEvent(String eventId, Event event) throws IOException {
