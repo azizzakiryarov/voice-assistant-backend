@@ -1,0 +1,14 @@
+# Accepted Trivy findings. Each entry expires, so CI fails again and the decision is revisited.
+#
+# Spring Framework 6.2.x: these CVEs are only fixed in 7.0.9 (Spring Boot 4). Upgrading to
+# Spring Boot 4 is a larger migration and is tracked as known debt.
+# The application does not use XSLT views, Server-Sent Events or WebFlux functional endpoints
+# directly; WebFlux is on the classpath through Spring AI.
+# Accepted 2026-10-21. Review by 2027-01-31 at the latest.
+
+# spring-webmvc: remote code execution via XsltView path handling
+CVE-2026-47884 exp:2027-01-31
+# spring-webmvc/spring-webflux: stream corruption in Server-Sent Events with views
+CVE-2026-47890 exp:2027-01-31
+# spring-webflux: header predicate bypass in functional endpoints
+CVE-2026-47892 exp:2027-01-31
