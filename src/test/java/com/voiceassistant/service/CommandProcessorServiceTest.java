@@ -3,6 +3,9 @@ package com.voiceassistant.service;
 import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
 import com.voiceassistant.dto.MeetingRequestDTO;
+import com.voiceassistant.dto.MeetingResponseDTO;
+import com.voiceassistant.dto.TodoItemRequestDTO;
+import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalRequestDTO;
 import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
@@ -200,7 +203,33 @@ class CommandProcessorServiceTest {
         VoiceCommandApprovalResponseDTO body = (VoiceCommandApprovalResponseDTO) response.getBody();
         assertThat(body.getType()).isEqualTo(VoiceCommandType.MEETING);
         assertThat(body.isGoogleSynced()).isFalse();
-        assertThat(body.getSaved()).isSameAs(savedMeeting);
+        assertThat(body.getSaved()).isInstanceOf(MeetingResponseDTO.class);
+        assertThat(((MeetingResponseDTO) body.getSaved()).getId()).isEqualTo(99L);
         verify(meetingRepository).save(any(Meeting.class));
+    }
+
+    @Test
+    void approveTodoReturnsDtoInsteadOfEntity() {
+        TodoItemRequestDTO todoRequest = new TodoItemRequestDTO();
+        todoRequest.setDescription("Köp mjölk");
+
+        VoiceCommandApprovalRequestDTO request = new VoiceCommandApprovalRequestDTO();
+        request.setType(VoiceCommandType.TODO);
+        request.setTodo(todoRequest);
+
+        when(todoRepository.save(any(TodoItem.class))).thenAnswer(invocation -> {
+            TodoItem saved = invocation.getArgument(0);
+            saved.setId(7L);
+            return saved;
+        });
+
+        ResponseEntity<Object> response = commandProcessorService.approveCommand(request);
+
+        VoiceCommandApprovalResponseDTO body = (VoiceCommandApprovalResponseDTO) response.getBody();
+        assertThat(body.getSaved()).isInstanceOf(TodoItemResponseDTO.class);
+        TodoItemResponseDTO saved = (TodoItemResponseDTO) body.getSaved();
+        assertThat(saved.getId()).isEqualTo(7L);
+        assertThat(saved.getDescription()).isEqualTo("Köp mjölk");
+        assertThat(saved.getSyncStatus()).isEqualTo("LOCAL");
     }
 }

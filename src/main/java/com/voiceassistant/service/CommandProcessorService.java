@@ -380,7 +380,7 @@ public class CommandProcessorService {
         TodoItem saved = todoRepository.save(todoItem);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
         response.setType(VoiceCommandType.TODO);
-        response.setSaved(saved);
+        response.setSaved(Mapper.toTodoResponse(saved));
         response.setGoogleSynced(false);
         response.setGoogleService("NONE");
         return ResponseEntity.ok(response);
@@ -419,7 +419,7 @@ public class CommandProcessorService {
 
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
         response.setType(VoiceCommandType.MEETING);
-        response.setSaved(saved);
+        response.setSaved(Mapper.toMeetingResponse(saved));
         response.setGoogleSynced(googleSynced);
         response.setGoogleService("GOOGLE_CALENDAR");
         return ResponseEntity.ok(response);

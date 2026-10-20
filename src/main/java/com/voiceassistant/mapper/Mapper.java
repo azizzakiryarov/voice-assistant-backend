@@ -8,9 +8,12 @@ import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.voiceassistant.config.AppTimeZone;
+import com.voiceassistant.dto.MeetingResponseDTO;
+import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.exception.AudioTranslationException;
 import com.voiceassistant.model.Meeting;
 import com.voiceassistant.model.Participants;
+import com.voiceassistant.model.TodoItem;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -42,6 +45,30 @@ public class Mapper {
             newEvent.setAttendees(attendees);
         }
         return newEvent;
+    }
+
+    public static MeetingResponseDTO toMeetingResponse(Meeting meeting) {
+        MeetingResponseDTO response = new MeetingResponseDTO();
+        response.setId(meeting.getId());
+        response.setTitle(meeting.getTitle());
+        response.setStartTimestamp(meeting.getStartTimestamp());
+        response.setEndTimestamp(meeting.getEndTimestamp());
+        response.setParticipants(meeting.getParticipants());
+        return response;
+    }
+
+    public static TodoItemResponseDTO toTodoResponse(TodoItem todoItem) {
+        TodoItemResponseDTO response = new TodoItemResponseDTO();
+        response.setId(todoItem.getId());
+        response.setDescription(todoItem.getDescription());
+        response.setDueDate(todoItem.getDueDate());
+        response.setCompleted(todoItem.isCompleted());
+        response.setGoogleTaskId(todoItem.getGoogleTaskId());
+        response.setGoogleTaskListId(todoItem.getGoogleTaskListId());
+        response.setGooglePosition(todoItem.getGooglePosition());
+        response.setGoogleUpdatedAt(todoItem.getGoogleUpdatedAt());
+        response.setSyncStatus(todoItem.getSyncStatus());
+        return response;
     }
 
     public static DateTime convertLocalDateTimeToGoogleDateTime(LocalDateTime localDateTime) {
