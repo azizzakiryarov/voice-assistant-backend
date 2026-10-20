@@ -75,7 +75,7 @@ class CommandProcessorServiceTest {
     @Test
     void processCommandReturnsSavedTodoItemAsJsonBody() {
         String command = "Lägg till att köpa mjölk imorgon";
-        LocalDate dueDate = LocalDate.now().plusDays(1);
+        LocalDate dueDate = LocalDate.now(AppTimeZone.DEFAULT).plusDays(1);
 
         TodoItem analyzedTodoItem = new TodoItem();
         analyzedTodoItem.setDescription("köpa mjölk");
@@ -107,7 +107,7 @@ class CommandProcessorServiceTest {
         TodoItem savedTodoItem = new TodoItem();
         savedTodoItem.setId(42L);
         savedTodoItem.setDescription("köpa mjölk");
-        savedTodoItem.setDueDate(LocalDate.now());
+        savedTodoItem.setDueDate(LocalDate.now(AppTimeZone.DEFAULT));
 
         when(openAIService.analyzeCommand(command)).thenReturn(analyzedTodoItem);
         when(todoRepository.save(analyzedTodoItem)).thenReturn(savedTodoItem);
@@ -116,7 +116,7 @@ class CommandProcessorServiceTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isSameAs(savedTodoItem);
-        assertThat(analyzedTodoItem.getDueDate()).isEqualTo(LocalDate.now());
+        assertThat(analyzedTodoItem.getDueDate()).isEqualTo(LocalDate.now(AppTimeZone.DEFAULT));
         assertThat(analyzedTodoItem.getOwner()).isSameAs(currentUser);
     }
 
