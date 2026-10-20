@@ -8,6 +8,7 @@ import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.TodoRepository;
 import com.voiceassistant.service.AppUserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -31,6 +32,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class GoogleTasksService {
 
@@ -111,7 +113,11 @@ public class GoogleTasksService {
             todoItem.setSyncStatus(SyncStatus.GOOGLE_TASKS_CREATED.name());
             todoRepository.save(todoItem);
             return true;
+        } catch (HttpStatusCodeException e) {
+            log.warn("Google Tasks create failed for todo id={} status={}", todoItem.getId(), e.getStatusCode());
+            return false;
         } catch (Exception e) {
+            log.warn("Google Tasks create failed for todo id={} cause={}", todoItem.getId(), e.getClass().getSimpleName());
             return false;
         }
     }

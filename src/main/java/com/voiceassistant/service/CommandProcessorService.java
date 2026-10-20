@@ -16,6 +16,7 @@ import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.MeetingRepository;
 import com.voiceassistant.repository.TodoRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +36,7 @@ import java.util.regex.Pattern;
 
 import static com.voiceassistant.service.TranscriptionService.extractEmailAddress;
 
+@Slf4j
 @Service
 public class CommandProcessorService {
 
@@ -415,6 +417,9 @@ public class CommandProcessorService {
             googleSynced = true;
         } catch (IOException e) {
             // The approved command is already persisted locally; surface sync state to the client.
+            // Only the exception type is logged: Google error messages can echo event data.
+            log.warn("Google Calendar sync failed for voice meeting id={} cause={}",
+                    saved.getId(), e.getClass().getSimpleName());
         }
 
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();

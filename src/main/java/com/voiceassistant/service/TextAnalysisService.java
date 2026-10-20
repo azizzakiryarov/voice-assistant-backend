@@ -291,6 +291,7 @@ public class TextAnalysisService {
             googleCalendarService.createEvent(toGoogleEvent(event));
             return true;
         } catch (IOException | RuntimeException e) {
+            log.warn("Google Calendar sync failed for text analysis event cause={}", e.getClass().getSimpleName());
             return false;
         }
     }
