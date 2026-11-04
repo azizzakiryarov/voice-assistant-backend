@@ -8,6 +8,7 @@ import com.voiceassistant.dto.VoiceCommandApprovalResponseDTO;
 import com.voiceassistant.dto.VoiceCommandPreviewDTO;
 import com.voiceassistant.dto.VoiceCommandType;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
+import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.mapper.Mapper;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.Meeting;
@@ -114,6 +115,7 @@ public class CommandProcessorService {
 
     private final OpenAIService openAIService;
     private final GoogleCalendarService googleCalendarService;
+    private final GoogleTasksService googleTasksService;
     private final TodoRepository todoRepository;
     private final MeetingRepository meetingRepository;
     private final AppUserService appUserService;
@@ -121,11 +123,13 @@ public class CommandProcessorService {
     public CommandProcessorService(
             OpenAIService openAIService,
             GoogleCalendarService googleCalendarService,
+            GoogleTasksService googleTasksService,
             TodoRepository todoRepository,
             MeetingRepository meetingRepository,
             AppUserService appUserService) {
         this.openAIService = openAIService;
         this.googleCalendarService = googleCalendarService;
+        this.googleTasksService = googleTasksService;
         this.todoRepository = todoRepository;
         this.meetingRepository = meetingRepository;
         this.appUserService = appUserService;
@@ -380,11 +384,12 @@ public class CommandProcessorService {
         todoItem.setSyncStatus(SyncStatus.LOCAL.name());
 
         TodoItem saved = todoRepository.save(todoItem);
+        boolean googleSynced = googleTasksService.createTaskIfConnected(saved);
         VoiceCommandApprovalResponseDTO response = new VoiceCommandApprovalResponseDTO();
         response.setType(VoiceCommandType.TODO);
         response.setSaved(Mapper.toTodoResponse(saved));
-        response.setGoogleSynced(false);
-        response.setGoogleService("NONE");
+        response.setGoogleSynced(googleSynced);
+        response.setGoogleService("GOOGLE_TASKS");
         return ResponseEntity.ok(response);
     }
 

@@ -4,6 +4,7 @@ import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.TodoItemRequestDTO;
 import com.voiceassistant.dto.TodoItemResponseDTO;
 import com.voiceassistant.exception.ResourceNotFoundException;
+import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.model.AppUser;
 import com.voiceassistant.model.SyncStatus;
 import com.voiceassistant.model.TodoItem;
@@ -21,11 +22,17 @@ public class TodoItemServiceImpl implements TodoItemService {
     private final TodoRepository todoRepository;
     private final ModelMapper modelMapper;
     private final AppUserService appUserService;
+    private final GoogleTasksService googleTasksService;
 
-    public TodoItemServiceImpl(TodoRepository todoRepository, ModelMapper modelMapper, AppUserService appUserService) {
+    public TodoItemServiceImpl(
+            TodoRepository todoRepository,
+            ModelMapper modelMapper,
+            AppUserService appUserService,
+            GoogleTasksService googleTasksService) {
         this.todoRepository = todoRepository;
         this.modelMapper = modelMapper;
         this.appUserService = appUserService;
+        this.googleTasksService = googleTasksService;
     }
 
     @Override
@@ -41,6 +48,7 @@ public class TodoItemServiceImpl implements TodoItemService {
         todoItem.setOwner(owner);
         todoItem.setSyncStatus(SyncStatus.LOCAL.name());
         TodoItem savedTodoItem = todoRepository.save(todoItem);
+        googleTasksService.createTaskIfConnected(savedTodoItem);
         return modelMapper.map(savedTodoItem, TodoItemResponseDTO.class);
     }
 
@@ -75,15 +83,16 @@ public class TodoItemServiceImpl implements TodoItemService {
         }
         existingTodoItem.setCompleted(todoItemRequestDTO.isCompleted());
         TodoItem updatedTodoItem = todoRepository.save(existingTodoItem);
+        googleTasksService.updateTaskIfLinked(updatedTodoItem);
         return modelMapper.map(updatedTodoItem, TodoItemResponseDTO.class);
     }
 
     @Override
     public void deleteTodoItem(Long id) {
         AppUser owner = appUserService.getCurrentUser();
-        if (!todoRepository.existsByIdAndOwnerId(id, owner.getId())) {
-            throw new ResourceNotFoundException(TODO_ITEM_NOT_FOUND_WITH_ID + id);
-        }
+        TodoItem todoItem = todoRepository.findByIdAndOwnerId(id, owner.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(TODO_ITEM_NOT_FOUND_WITH_ID + id));
+        googleTasksService.deleteTaskIfLinked(todoItem);
         todoRepository.deleteById(id);
     }
 }

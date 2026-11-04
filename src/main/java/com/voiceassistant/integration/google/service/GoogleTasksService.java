@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -31,12 +32,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
 public class GoogleTasksService {
 
     private static final String TASKS_BASE_URL = "https://tasks.googleapis.com/tasks/v1";
+    private static final String TASK_URL = TASKS_BASE_URL + "/lists/{taskListId}/tasks/{taskId}";
+    private static final String STATUS_COMPLETED = "completed";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final AppUserService appUserService;
@@ -84,18 +88,7 @@ public class GoogleTasksService {
             return false;
         }
 
-        String[] descriptionParts = splitDescription(todoItem.getDescription());
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("title", descriptionParts[0]);
-        if (!descriptionParts[1].isBlank()) {
-            body.put("notes", descriptionParts[1]);
-        }
-        if (todoItem.getDueDate() != null) {
-            body.put("due", todoItem.getDueDate()
-                    .atStartOfDay()
-                    .atOffset(ZoneOffset.UTC)
-                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
-        }
+        Map<String, Object> body = taskBody(todoItem);
 
         try {
             HttpHeaders headers = authorizedHeaders();
@@ -122,6 +115,74 @@ public class GoogleTasksService {
         }
     }
 
+    public boolean updateTaskIfLinked(TodoItem todoItem) {
+        if (todoItem.getGoogleTaskId() == null || !hasCurrentUserTasksToken()) {
+            return false;
+        }
+
+        Map<String, Object> body = taskBody(todoItem);
+        body.put("id", todoItem.getGoogleTaskId());
+        try {
+            restTemplate.exchange(
+                    TASK_URL,
+                    HttpMethod.PUT,
+                    new HttpEntity<>(body, authorizedHeaders()),
+                    String.class,
+                    todoItem.getGoogleTaskListId(),
+                    todoItem.getGoogleTaskId());
+            return true;
+        } catch (HttpStatusCodeException e) {
+            log.warn("Google Tasks update failed for todo id={} status={}", todoItem.getId(), e.getStatusCode());
+            return false;
+        } catch (Exception e) {
+            log.warn("Google Tasks update failed for todo id={} cause={}", todoItem.getId(), e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    public boolean deleteTaskIfLinked(TodoItem todoItem) {
+        if (todoItem.getGoogleTaskId() == null || !hasCurrentUserTasksToken()) {
+            return false;
+        }
+
+        try {
+            restTemplate.exchange(
+                    TASK_URL,
+                    HttpMethod.DELETE,
+                    authorizedRequest(),
+                    Void.class,
+                    todoItem.getGoogleTaskListId(),
+                    todoItem.getGoogleTaskId());
+            return true;
+        } catch (HttpClientErrorException.NotFound e) {
+            // Already removed in Google, which is the state we wanted.
+            return true;
+        } catch (HttpStatusCodeException e) {
+            log.warn("Google Tasks delete failed for todo id={} status={}", todoItem.getId(), e.getStatusCode());
+            return false;
+        } catch (Exception e) {
+            log.warn("Google Tasks delete failed for todo id={} cause={}", todoItem.getId(), e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private Map<String, Object> taskBody(TodoItem todoItem) {
+        String[] descriptionParts = splitDescription(todoItem.getDescription());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("title", descriptionParts[0]);
+        if (!descriptionParts[1].isBlank()) {
+            body.put("notes", descriptionParts[1]);
+        }
+        if (todoItem.getDueDate() != null) {
+            body.put("due", todoItem.getDueDate()
+                    .atStartOfDay()
+                    .atOffset(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+        }
+        body.put("status", todoItem.isCompleted() ? STATUS_COMPLETED : "needsAction");
+        return body;
+    }
+
     private void importTaskList(
             AppUser owner,
             String taskListId,
@@ -132,7 +193,7 @@ public class GoogleTasksService {
             String url = UriComponentsBuilder
                     .fromHttpUrl(TASKS_BASE_URL + "/lists/{taskListId}/tasks")
                     .queryParam("showCompleted", true)
-                    .queryParam("showDeleted", false)
+                    .queryParam("showDeleted", true)
                     .queryParam("showHidden", true)
                     .queryParamIfPresent("pageToken", java.util.Optional.ofNullable(pageToken))
                     .buildAndExpand(taskListId)
@@ -151,28 +212,36 @@ public class GoogleTasksService {
         String taskId = textOrNull(task, "id");
         String title = textOrNull(task, "title");
         String notes = textOrNull(task, "notes");
+        if (taskId != null && task.path("deleted").asBoolean(false)) {
+            removeDeletedTask(owner, taskId, result);
+            return;
+        }
         if (taskId == null || title == null || title.isBlank()) {
             result.setSkippedCount(result.getSkippedCount() + 1);
             return;
         }
 
-        boolean existing = true;
-        TodoItem todoItem = todoRepository
-                .findByOwnerIdAndGoogleTaskListIdAndGoogleTaskId(owner.getId(), taskListId, taskId)
-                .orElseGet(() -> {
-                    TodoItem created = new TodoItem();
-                    created.setOwner(owner);
-                    created.setGoogleTaskListId(taskListId);
-                    created.setGoogleTaskId(taskId);
-                    return created;
-                });
-        if (todoItem.getId() == null) {
-            existing = false;
+        boolean completed = STATUS_COMPLETED.equals(textOrNull(task, "status"));
+        Optional<TodoItem> match = todoRepository.findByOwnerIdAndGoogleTaskId(owner.getId(), taskId);
+        // Tasks finished in Google before they reached the app are history, not new work.
+        if (match.isEmpty() && completed) {
+            result.setSkippedCount(result.getSkippedCount() + 1);
+            return;
         }
+
+        boolean existing = match.isPresent();
+        TodoItem todoItem = match.orElseGet(() -> {
+            TodoItem created = new TodoItem();
+            created.setOwner(owner);
+            created.setGoogleTaskId(taskId);
+            return created;
+        });
+        // Tasks created from the app are stored under the "@default" alias until their first import.
+        todoItem.setGoogleTaskListId(taskListId);
 
         todoItem.setDescription(buildDescription(title, notes));
         todoItem.setDueDate(parseDueDate(textOrNull(task, "due")));
-        todoItem.setCompleted("completed".equals(textOrNull(task, "status")));
+        todoItem.setCompleted(completed);
         todoItem.setGooglePosition(textOrNull(task, "position"));
         todoItem.setGoogleUpdatedAt(parseOffsetDateTime(textOrNull(task, "updated")));
         todoItem.setSyncStatus(SyncStatus.GOOGLE_TASKS_IMPORTED.name());
@@ -183,6 +252,16 @@ public class GoogleTasksService {
         } else {
             result.setImportedCount(result.getImportedCount() + 1);
         }
+    }
+
+    private void removeDeletedTask(AppUser owner, String taskId, GoogleTasksSyncResultDTO result) {
+        Optional<TodoItem> match = todoRepository.findByOwnerIdAndGoogleTaskId(owner.getId(), taskId);
+        if (match.isEmpty()) {
+            result.setSkippedCount(result.getSkippedCount() + 1);
+            return;
+        }
+        todoRepository.delete(match.get());
+        result.setDeletedCount(result.getDeletedCount() + 1);
     }
 
     static String buildDescription(String title, String notes) {
