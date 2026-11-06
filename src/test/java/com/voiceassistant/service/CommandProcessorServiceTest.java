@@ -6,6 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.integration.google.service.GoogleCalendarService;
+import com.voiceassistant.integration.google.service.GoogleTasksService;
 import com.voiceassistant.dto.MeetingRequestDTO;
 import com.voiceassistant.dto.MeetingResponseDTO;
 import com.voiceassistant.dto.TodoItemRequestDTO;
@@ -46,6 +47,7 @@ class CommandProcessorServiceTest {
 
     private OpenAIService openAIService;
     private GoogleCalendarService googleCalendarService;
+    private GoogleTasksService googleTasksService;
     private TodoRepository todoRepository;
     private MeetingRepository meetingRepository;
     private AppUserService appUserService;
@@ -56,6 +58,7 @@ class CommandProcessorServiceTest {
     void setUp() {
         openAIService = mock(OpenAIService.class);
         googleCalendarService = mock(GoogleCalendarService.class);
+        googleTasksService = mock(GoogleTasksService.class);
         todoRepository = mock(TodoRepository.class);
         meetingRepository = mock(MeetingRepository.class);
         appUserService = mock(AppUserService.class);
@@ -67,6 +70,7 @@ class CommandProcessorServiceTest {
         commandProcessorService = new CommandProcessorService(
                 openAIService,
                 googleCalendarService,
+                googleTasksService,
                 todoRepository,
                 meetingRepository,
                 appUserService);
@@ -253,5 +257,22 @@ class CommandProcessorServiceTest {
         assertThat(saved.getId()).isEqualTo(7L);
         assertThat(saved.getDescription()).isEqualTo("Köp mjölk");
         assertThat(saved.getSyncStatus()).isEqualTo("LOCAL");
+    }
+
+    @Test
+    void approveTodoCreatesTaskInGoogle() {
+        TodoItemRequestDTO todoRequest = new TodoItemRequestDTO();
+        todoRequest.setDescription("Köp mjölk");
+        VoiceCommandApprovalRequestDTO request = new VoiceCommandApprovalRequestDTO();
+        request.setType(VoiceCommandType.TODO);
+        request.setTodo(todoRequest);
+        when(todoRepository.save(any(TodoItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(googleTasksService.createTaskIfConnected(any(TodoItem.class))).thenReturn(true);
+
+        ResponseEntity<Object> response = commandProcessorService.approveCommand(request);
+
+        VoiceCommandApprovalResponseDTO body = (VoiceCommandApprovalResponseDTO) response.getBody();
+        assertThat(body.isGoogleSynced()).isTrue();
+        assertThat(body.getGoogleService()).isEqualTo("GOOGLE_TASKS");
     }
 }
