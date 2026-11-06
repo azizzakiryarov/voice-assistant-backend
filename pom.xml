@@ -110,6 +110,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- google-api-client brings 31.1-jre, which has CVE-2026-102554 (found by the Trivy image scan in CI). -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>33.7.2-jre</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>

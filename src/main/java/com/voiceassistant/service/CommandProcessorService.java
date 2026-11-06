@@ -22,6 +22,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,6 +42,8 @@ import static com.voiceassistant.service.TranscriptionService.extractEmailAddres
 @Service
 public class CommandProcessorService {
 
+    // Whisper writes both "idag" and the standard two-word form "i dag".
+    private static final Pattern SWEDISH_TODAY_PATTERN = Pattern.compile("\\bi ?dag\\b");
     private static final Pattern CLOCK_TIME_PATTERN = Pattern.compile(
             "(?:\\bklockan\\b|\\bkl\\.?)\\s+([a-zåäö0-9]{1,8})(?:\\s*(?::|\\.)\\s*([a-zåäö0-9]{1,8})|\\s+([a-zåäö0-9]{1,8}))?");
     private static final Pattern RUSSIAN_DATE_PATTERN = Pattern.compile(
@@ -255,7 +258,12 @@ public class CommandProcessorService {
             return Optional.empty();
         }
 
-        return Optional.of(LocalDate.of(year, month, day));
+        try {
+            return Optional.of(LocalDate.of(year, month, day));
+        } catch (DateTimeException e) {
+            // Speech recognition can produce dates that do not exist, such as 31 February.
+            return Optional.empty();
+        }
     }
 
     private Optional<TimeRange> resolveRussianTimeRange(String normalized) {
@@ -294,7 +302,7 @@ public class CommandProcessorService {
         if (normalized.contains("i morgon") || normalized.contains("imorgon")) {
             return Optional.of(today.plusDays(1));
         }
-        if (normalized.contains("idag")) {
+        if (SWEDISH_TODAY_PATTERN.matcher(normalized).find()) {
             return Optional.of(today);
         }
 

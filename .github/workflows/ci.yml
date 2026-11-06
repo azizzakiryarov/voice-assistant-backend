@@ -1,0 +1,30 @@
+# Checks pull requests before merge. Deployment stays in Tekton and Argo CD on the Raspberry Pi
+# (see voice-assistant-backend-gitops/ci/tekton), which runs on push to main.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run unit tests
+        run: ./mvnw -B -ntp test

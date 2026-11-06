@@ -2,8 +2,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/voiceassistant
-    username: ${POSTGRES_USER:azizzakiryarov}
-    password: ${POSTGRES_PASSWORD:password}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   security:
@@ -83,6 +83,9 @@ google:
 
 app:
   frontend-url: ${APP_FRONTEND_URL:/}
+  http:
+    connect-timeout-seconds: ${HTTP_CONNECT_TIMEOUT_SECONDS:10}
+    read-timeout-seconds: ${HTTP_READ_TIMEOUT_SECONDS:180}
   text-analysis:
     ollama:
       keep-alive: ${TEXT_ANALYSIS_OLLAMA_KEEP_ALIVE:${OLLAMA_KEEP_ALIVE:30m}}

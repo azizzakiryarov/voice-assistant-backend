@@ -13,6 +13,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,6 +51,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorDetails errorDetails = new ErrorDetails(
                 LocalDateTime.now(),
                 exception.getMessage(),
+                request.getDescription(false));
+
+        return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DateTimeException.class)
+    public ResponseEntity<ErrorDetails> handleDateTimeException(
+            DateTimeException exception, WebRequest request) {
+
+        ErrorDetails errorDetails = new ErrorDetails(
+                LocalDateTime.now(),
+                "Ogiltigt datum eller tid. Använd formatet ÅÅÅÅ-MM-DD eller ÅÅÅÅ-MM-DDTHH:mm.",
                 request.getDescription(false));
 
         return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
