@@ -161,6 +161,33 @@ class CommandProcessorServiceTest {
     }
 
     @Test
+    void previewCommandUnderstandsTwoWordSwedishToday() {
+        String transcription = "jag har ett möte i dag klockan 14";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(preview.getMeeting().getStartTimestamp())
+                .isEqualTo(LocalDate.now(AppTimeZone.DEFAULT).atTime(14, 0));
+    }
+
+    @Test
+    void previewCommandKeepsUnknownPreviewWhenSpokenDateDoesNotExist() {
+        String transcription = "создай митинг 31 февраля 2027 года с 10 00 до 11 00";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getType()).isEqualTo(VoiceCommandType.UNKNOWN);
+        assertThat(preview.getMeeting()).isNull();
+    }
+
+    @Test
     void previewCommandBuildsMeetingReviewWhenAiReturnsUnknownForRussianCalendarSpeech() {
         String transcription = "создай мете или митинг на следующей неделе во вторник получается 23 июня 2026 года с 10 00 до 12 00 тонировка машины";
         VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
