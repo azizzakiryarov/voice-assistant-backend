@@ -40,7 +40,7 @@ public class TodoItemServiceImpl implements TodoItemService {
         AppUser owner = appUserService.getCurrentUser();
         TodoItem todoItem = modelMapper.map(todoItemRequestDTO, TodoItem.class);
         if (todoItem.getDescription() == null) {
-            throw new IllegalArgumentException("Title are required fields");
+            throw new IllegalArgumentException("Beskrivning krävs för en uppgift");
         }
         if (todoItem.getDueDate() == null) {
             todoItem.setDueDate(LocalDate.now(AppTimeZone.DEFAULT));
