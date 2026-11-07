@@ -1,0 +1,36 @@
+# End-to-end tests. Activate together with the local profile: SPRING_PROFILES_ACTIVE=local,e2e.
+# Every external service is replaced by a fake started from voice-assistent-frontend/e2e/compose.yml,
+# so the tests never reach Google, Ollama or Whisper and never touch real user data.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:55432/voiceassistant
+    username: e2e
+    password: e2e
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: e2e-client
+            client-secret: e2e-secret
+        provider:
+          google:
+            # navikt/mock-oauth2-server plays Google's OpenID Connect provider.
+            issuer-uri: http://localhost:8090/google
+            user-name-attribute: sub
+  ai:
+    ollama:
+      base-url: http://localhost:8089
+
+transcription:
+  whisper:
+    base-url: http://localhost:8089/whisper
+
+app:
+  google:
+    tasks-base-url: http://localhost:8089/tasks/v1
+    calendar-root-url: http://localhost:8089/calendar-api/
+  form-scan:
+    ocr:
+      # The test image is English, and CI installs only English language data.
+      languages: eng

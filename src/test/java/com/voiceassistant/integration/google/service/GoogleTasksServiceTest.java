@@ -73,7 +73,7 @@ class GoogleTasksServiceTest {
         RestTemplate restTemplate = new RestTemplate();
         google = MockRestServiceServer.createServer(restTemplate);
         service = new GoogleTasksService(
-                authorizedClientService, appUserService, todoRepository, restTemplate, new ObjectMapper());
+                authorizedClientService, appUserService, todoRepository, restTemplate, new ObjectMapper(), BASE_URL);
     }
 
     @AfterEach

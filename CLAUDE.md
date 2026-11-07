@@ -90,6 +90,8 @@ Live: https://voice-assistant.duckdns.org
 
 ## Känd begränsning
 
-Google-appen kör i OAuth-läget **Testing**: bara användare som lagts till som testanvändare
-i Google Cloud Console (max 100) kan logga in, och Tasks/Calendar-scopes kräver Googles
-verifiering innan appen kan öppnas för alla. Den som vill testa ber om att bli tillagd.
+Google-appen är publicerad (**In production**) men inte verifierad. Alla med ett Google-konto
+kan logga in, men inloggningen visar Googles varning om overifierad app och högst 100 användare
+kan använda den. Verifiering kräver en offentlig startsida, en sida om personuppgifter på samma
+domän, verifierad domän och en video av inloggningsflödet; Google kan också be om att scopet
+`calendar` snävas in till `calendar.events`.
