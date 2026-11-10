@@ -20,6 +20,10 @@ public class GoogleCalendarConfig {
     @Value("${google.calendar.application-name}")
     private String applicationName;
 
+    // Overridden by the e2e profile to point at a fake Google API.
+    @Value("${app.google.calendar-root-url:https://www.googleapis.com/}")
+    private String rootUrl;
+
     public Calendar calendarClient(String accessToken) throws GeneralSecurityException, IOException {
         Credential credential = new Credential.Builder(BearerToken.authorizationHeaderAccessMethod())
                 .setTransport(GoogleNetHttpTransport.newTrustedTransport())
@@ -29,6 +33,7 @@ public class GoogleCalendarConfig {
 
         return new Calendar.Builder(GoogleNetHttpTransport.newTrustedTransport(), JSON_FACTORY, credential)
                 .setApplicationName(applicationName)
+                .setRootUrl(rootUrl)
                 .build();
     }
 }

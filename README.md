@@ -5,8 +5,7 @@
 Gör om röstkommandon, långa mejl och fotade pappersblanketter till uppgifter och möten i Google
 Tasks och Google Calendar, efter att du har granskat och godkänt dem.
 
-Live: <https://voice-assistant.duckdns.org> (inloggning kräver att ditt Google-konto är tillagt som
-testanvändare, se [Begränsningar](#begränsningar))
+Live: <https://voice-assistant.duckdns.org> (logga in med valfritt Google-konto)
 
 ## Vad det gör
 
@@ -116,8 +115,9 @@ voice-assistant-backend/
 
 ## Begränsningar
 
-- **Begränsad inloggning:** Google-appen är i läget Testing, så bara konton som lagts till som
-  testanvändare (max 100) kan logga in. Be om att bli tillagd för att prova.
+- **Overifierad Google-app:** appen är publicerad, så alla med ett Google-konto kan logga in. Google
+  har ännu inte verifierat den, så inloggningen visar en varning (klicka *Avancerat → Fortsätt*), och
+  högst 100 konton kan använda den tills verifieringen är klar.
 - **Synk från Google sker manuellt:** ändringar i Google Tasks syns i appen först när du klickar på
   "Synka med Google". Appen skickar sina ändringar direkt.
 - **Utgången Google-token:** access-token förnyas inte, så synken kan sluta fungera efter ungefär en

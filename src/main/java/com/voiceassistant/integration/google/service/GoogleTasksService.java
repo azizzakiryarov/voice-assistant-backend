@@ -9,6 +9,7 @@ import com.voiceassistant.model.TodoItem;
 import com.voiceassistant.repository.TodoRepository;
 import com.voiceassistant.service.AppUserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -38,8 +39,6 @@ import java.util.Optional;
 @Service
 public class GoogleTasksService {
 
-    private static final String TASKS_BASE_URL = "https://tasks.googleapis.com/tasks/v1";
-    private static final String TASK_URL = TASKS_BASE_URL + "/lists/{taskListId}/tasks/{taskId}";
     private static final String STATUS_COMPLETED = "completed";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
@@ -47,18 +46,23 @@ public class GoogleTasksService {
     private final TodoRepository todoRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final String tasksBaseUrl;
+    private final String taskUrl;
 
     public GoogleTasksService(
             OAuth2AuthorizedClientService authorizedClientService,
             AppUserService appUserService,
             TodoRepository todoRepository,
             RestTemplate restTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${app.google.tasks-base-url:https://tasks.googleapis.com/tasks/v1}") String tasksBaseUrl) {
         this.authorizedClientService = authorizedClientService;
         this.appUserService = appUserService;
         this.todoRepository = todoRepository;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.tasksBaseUrl = tasksBaseUrl;
+        this.taskUrl = tasksBaseUrl + "/lists/{taskListId}/tasks/{taskId}";
     }
 
     public GoogleTasksSyncResultDTO importCurrentUserTasks() {
@@ -66,7 +70,7 @@ public class GoogleTasksService {
         HttpEntity<Void> requestEntity = authorizedRequest();
         GoogleTasksSyncResultDTO result = new GoogleTasksSyncResultDTO();
 
-        JsonNode taskLists = getJson(TASKS_BASE_URL + "/users/@me/lists", requestEntity);
+        JsonNode taskLists = getJson(tasksBaseUrl + "/users/@me/lists", requestEntity);
         for (JsonNode taskList : taskLists.path("items")) {
             String taskListId = textOrNull(taskList, "id");
             if (taskListId == null) {
@@ -94,7 +98,7 @@ public class GoogleTasksService {
             HttpHeaders headers = authorizedHeaders();
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.exchange(
-                    TASKS_BASE_URL + "/lists/@default/tasks",
+                    tasksBaseUrl + "/lists/@default/tasks",
                     HttpMethod.POST,
                     requestEntity,
                     String.class);
@@ -124,7 +128,7 @@ public class GoogleTasksService {
         body.put("id", todoItem.getGoogleTaskId());
         try {
             restTemplate.exchange(
-                    TASK_URL,
+                    taskUrl,
                     HttpMethod.PUT,
                     new HttpEntity<>(body, authorizedHeaders()),
                     String.class,
@@ -147,7 +151,7 @@ public class GoogleTasksService {
 
         try {
             restTemplate.exchange(
-                    TASK_URL,
+                    taskUrl,
                     HttpMethod.DELETE,
                     authorizedRequest(),
                     Void.class,
@@ -191,7 +195,7 @@ public class GoogleTasksService {
         String pageToken = null;
         do {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(TASKS_BASE_URL + "/lists/{taskListId}/tasks")
+                    .fromHttpUrl(tasksBaseUrl + "/lists/{taskListId}/tasks")
                     .queryParam("showCompleted", true)
                     .queryParam("showDeleted", true)
                     .queryParam("showHidden", true)
