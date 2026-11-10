@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +42,10 @@ public class TranscriptionService {
     // Regular expression för att hitta e-postadresser
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
+    // Speech recognition writes a spoken "@" as a word: "anna at test.com" or "anna snabel-a test.com".
+    private static final Pattern SPOKEN_EMAIL_PATTERN = Pattern.compile(
+            "\\b([a-z0-9._%+-]+)\\s+(?:at|snabel-?a)\\s+([a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.[a-z]{2,})\\b",
+            Pattern.CASE_INSENSITIVE);
 
     public TranscriptionResponseDTO transcribeAudio(MultipartFile audioFile) {
         return transcribeAudio(audioFile, null);
@@ -117,6 +122,10 @@ public class TranscriptionService {
         Matcher matcher = EMAIL_PATTERN.matcher(text);
         if (matcher.find()) {
             return matcher.group();
+        }
+        Matcher spoken = SPOKEN_EMAIL_PATTERN.matcher(text);
+        if (spoken.find()) {
+            return (spoken.group(1) + "@" + spoken.group(2)).toLowerCase(Locale.ROOT);
         }
         return null;
     }

@@ -302,4 +302,71 @@ class CommandProcessorServiceTest {
         assertThat(body.isGoogleSynced()).isTrue();
         assertThat(body.getGoogleService()).isEqualTo("GOOGLE_TASKS");
     }
+
+    @Test
+    void previewCommandUnderstandsSwedishCalendarDateAndTimeWithoutKlockan() {
+        String transcription = "boka ett möte med anna antonsson at test.com den 11 november 10.00 på morgonen angående lönesamtal";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        LocalDate today = LocalDate.now(AppTimeZone.DEFAULT);
+        LocalDate expectedDate = LocalDate.of(today.getYear(), 11, 11);
+        if (expectedDate.isBefore(today)) {
+            expectedDate = expectedDate.plusYears(1);
+        }
+        assertThat(preview.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(preview.getMeeting().getStartTimestamp()).isEqualTo(expectedDate.atTime(10, 0));
+        assertThat(preview.getMeeting().getEndTimestamp()).isEqualTo(expectedDate.atTime(11, 0));
+        assertThat(preview.getExtractedEmail()).isEqualTo("antonsson@test.com");
+        assertThat(preview.getMeeting().getParticipants().get(0).getEmail()).isEqualTo("antonsson@test.com");
+    }
+
+    @Test
+    void previewCommandUsesSpokenYearAndClockTime() {
+        String transcription = "jag har ett möte 3 mars 2027 kl 9:30";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getMeeting().getStartTimestamp()).isEqualTo(LocalDateTime.of(2027, 3, 3, 9, 30));
+    }
+
+    @Test
+    void previewCommandReadsSpokenSnabelA() {
+        String transcription = "möte i morgon klockan 10 med anna snabel-a test.se";
+        VoiceCommandPreviewDTO unknownPreview = new VoiceCommandPreviewDTO();
+        unknownPreview.setType(VoiceCommandType.UNKNOWN);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(unknownPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getExtractedEmail()).isEqualTo("anna@test.se");
+    }
+
+
+    @Test
+    void previewCommandPrefersSpokenDateAndTimeOverModelGuess() {
+        String transcription = "boka ett möte med anna i morgon klockan 10";
+        LocalDate tomorrow = LocalDate.now(AppTimeZone.DEFAULT).plusDays(1);
+        MeetingRequestDTO modelMeeting = new MeetingRequestDTO();
+        modelMeeting.setTitle(" ");
+        modelMeeting.setStartTimestamp(tomorrow.minusDays(1).atTime(10, 0));
+        modelMeeting.setEndTimestamp(tomorrow.minusDays(1).atTime(12, 0));
+        VoiceCommandPreviewDTO modelPreview = new VoiceCommandPreviewDTO();
+        modelPreview.setType(VoiceCommandType.MEETING);
+        modelPreview.setMeeting(modelMeeting);
+        when(openAIService.analyzeVoiceCommand(transcription)).thenReturn(modelPreview);
+
+        VoiceCommandPreviewDTO preview = commandProcessorService.previewCommand(transcription);
+
+        assertThat(preview.getMeeting().getStartTimestamp()).isEqualTo(tomorrow.atTime(10, 0));
+        assertThat(preview.getMeeting().getEndTimestamp()).isEqualTo(tomorrow.atTime(11, 0));
+        assertThat(preview.getMeeting().getTitle()).isEqualTo("Möte");
+    }
+
 }

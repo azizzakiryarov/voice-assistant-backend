@@ -1,8 +1,10 @@
 package com.voiceassistant.service;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.voiceassistant.config.AppTimeZone;
 import com.voiceassistant.dto.TextAnalysisRequestDTO;
 import com.voiceassistant.dto.TextAnalysisResponseDTO;
@@ -23,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -30,6 +33,8 @@ public class OpenAIService {
 
     private final ChatClient chatClient;
     private final OllamaOptions textAnalysisOptions;
+    private static final Pattern MISSING_KEY_QUOTE = Pattern.compile("([{,]\\s*)([A-Za-z_][A-Za-z0-9_]*)\"\\s*:");
+
     private final ObjectMapper objectMapper = JsonMapper.builder()
             .findAndAddModules()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -61,12 +66,15 @@ public class OpenAIService {
     private static final String DETAILS_PROMPT =
             "Analysera detta kommando och returnera JSON med detaljer: ";
 
+    // Small local models copy schema placeholders such as "YYYY-MM-DD|null" literally, so the prompt
+    // shows complete examples instead of a schema with alternatives.
     private static final String STRUCTURED_PROMPT = """
         Extract a voice command. Språk: svenska, engelska eller ryska. Today: %s.
         Return ONLY compact valid JSON, no markdown, no explanation.
-        Schema:
-        {"type":"TODO|MEETING|UNKNOWN","todo":{"description":"string","dueDate":"YYYY-MM-DD|null","completed":false},"meeting":{"title":"string","startTimestamp":"YYYY-MM-DDTHH:mm:ss|null","endTimestamp":"YYYY-MM-DDTHH:mm:ss|null","participants":[{"name":"string","email":"string|null"}]},"message":"string|null"}
-        Rules: TODO => meeting null. MEETING => todo null. UNKNOWN => both null. If meeting end is missing, use start + 1 hour. Interpret relative dates from today. Keep strings short.
+        "type" is one of TODO, MEETING or UNKNOWN. Use null for anything that is not said. Never invent email addresses.
+        Example TODO: {"type":"TODO","todo":{"description":"Köpa mjölk","dueDate":"2026-01-15","completed":false},"meeting":null,"message":null}
+        Example MEETING: {"type":"MEETING","todo":null,"meeting":{"title":"Möte med Anna","startTimestamp":"2026-01-15T10:00:00","endTimestamp":"2026-01-15T11:00:00","participants":[{"name":"Anna","email":null}]},"message":null}
+        Rules: "möte", "boka" or a clock time means MEETING. If meeting end is missing, use start + 1 hour. Interpret relative dates from today. Keep strings short.
         Command:
         """;
 
@@ -209,13 +217,18 @@ public class OpenAIService {
                             .content())
                     .trim();
 
-            VoiceCommandPreviewDTO preview = objectMapper.readValue(cleanJson(response), VoiceCommandPreviewDTO.class);
+            JsonNode tree = normalizeVoiceCommand(objectMapper.readTree(repairJson(cleanJson(response))));
+            VoiceCommandPreviewDTO preview = objectMapper.treeToValue(tree, VoiceCommandPreviewDTO.class);
             if (preview.getType() == null) {
                 preview.setType(VoiceCommandType.UNKNOWN);
             }
-            if (preview.getType() == VoiceCommandType.MEETING && preview.getMeeting() == null) {
+            if (preview.getType() == VoiceCommandType.MEETING
+                    && (preview.getMeeting() == null || preview.getMeeting().getStartTimestamp() == null)) {
                 preview.setType(VoiceCommandType.UNKNOWN);
+                preview.setMeeting(null);
                 preview.setMessage("Kunde inte extrahera mötesdetaljer");
+            } else if (preview.getType() == VoiceCommandType.MEETING && preview.getMeeting().getEndTimestamp() == null) {
+                preview.getMeeting().setEndTimestamp(preview.getMeeting().getStartTimestamp().plusHours(1));
             } else if (preview.getType() == VoiceCommandType.TODO && preview.getTodo() == null) {
                 preview.setType(VoiceCommandType.UNKNOWN);
                 preview.setMessage("Kunde inte extrahera att göra-detaljer");
@@ -286,11 +299,81 @@ public class OpenAIService {
             cleaned = cleaned.replaceFirst("\\s*```$", "");
         }
         int start = cleaned.indexOf('{');
-        int end = cleaned.lastIndexOf('}');
-        if (start >= 0 && end >= start) {
-            return cleaned.substring(start, end + 1);
+        if (start < 0) {
+            return cleaned;
         }
-        return cleaned;
+        // The model sometimes returns two objects in a row, so keep only the first complete one.
+        int depth = 0;
+        boolean inString = false;
+        for (int i = start; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
+            if (c == '"' && cleaned.charAt(i - 1) != '\\') {
+                inString = !inString;
+            } else if (!inString && c == '{') {
+                depth++;
+            } else if (!inString && c == '}' && --depth == 0) {
+                return cleaned.substring(start, i + 1);
+            }
+        }
+        int end = cleaned.lastIndexOf('}');
+        return end > start ? cleaned.substring(start, end + 1) : cleaned;
+    }
+
+    // Restores a missing opening quote on a field name, e.g. {"a":1,b":2}.
+    private static String repairJson(String json) {
+        return MISSING_KEY_QUOTE.matcher(json).replaceAll("$1\"$2\":");
+    }
+
+    // Small models copy schema alternatives ("2026-11-11|null"), leave out the type or fill in both
+    // todo and meeting. Clean that up so one bad field does not discard the whole command.
+    private static JsonNode normalizeVoiceCommand(JsonNode node) {
+        if (!(node instanceof ObjectNode root)) {
+            return node;
+        }
+        stripAlternatives(root);
+
+        JsonNode meeting = root.path("meeting");
+        JsonNode todo = root.path("todo");
+        String type = root.path("type").asText("").toUpperCase(Locale.ROOT);
+        if (!List.of("TODO", "MEETING", "UNKNOWN").contains(type)) {
+            if (meeting.hasNonNull("startTimestamp")) {
+                type = "MEETING";
+            } else if (todo.hasNonNull("description")) {
+                type = "TODO";
+            } else {
+                type = "UNKNOWN";
+            }
+        }
+        root.put("type", type);
+        if (type.equals("MEETING")) {
+            root.putNull("todo");
+        } else if (type.equals("TODO")) {
+            root.putNull("meeting");
+        }
+        return root;
+    }
+
+    private static void stripAlternatives(JsonNode node) {
+        if (node instanceof ObjectNode object) {
+            for (Map.Entry<String, JsonNode> field : object.properties()) {
+                JsonNode value = field.getValue();
+                if (value.isTextual() && value.asText().contains("|")) {
+                    String first = value.asText().split("\\|", 2)[0].trim();
+                    // "string|null" is the schema placeholder itself, not a value.
+                    if (first.isEmpty() || first.equalsIgnoreCase("null") || first.equalsIgnoreCase("string")) {
+                        object.putNull(field.getKey());
+                    } else {
+                        object.put(field.getKey(), first);
+                    }
+                } else if (value.isTextual() && value.asText().equalsIgnoreCase("null")) {
+                    object.putNull(field.getKey());
+                } else {
+                    stripAlternatives(value);
+                }
+            }
+        } else if (node.isArray()) {
+            node.forEach(OpenAIService::stripAlternatives);
+        }
     }
 
     private boolean isCompleteJson(String response) {

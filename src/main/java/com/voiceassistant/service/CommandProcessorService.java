@@ -46,6 +46,12 @@ public class CommandProcessorService {
     private static final Pattern SWEDISH_TODAY_PATTERN = Pattern.compile("\\bi ?dag\\b");
     private static final Pattern CLOCK_TIME_PATTERN = Pattern.compile(
             "(?:\\bklockan\\b|\\bkl\\.?)\\s+([a-zåäö0-9]{1,8})(?:\\s*(?::|\\.)\\s*([a-zåäö0-9]{1,8})|\\s+([a-zåäö0-9]{1,8}))?");
+    private static final Pattern NUMERIC_TIME_PATTERN = Pattern.compile("\\b([01]?\\d|2[0-3])[:.]([0-5]\\d)\\b");
+    private static final Pattern SWEDISH_DATE_PATTERN = Pattern.compile(
+            "\\b(\\d{1,2})(?::[ae])?\\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)(?:\\s+(\\d{4}))?\\b");
+    private static final List<String> SWEDISH_MONTHS = List.of(
+            "januari", "februari", "mars", "april", "maj", "juni",
+            "juli", "augusti", "september", "oktober", "november", "december");
     private static final Pattern RUSSIAN_DATE_PATTERN = Pattern.compile(
             "(\\d{1,2})\\s+(январ[ья]|феврал[ья]|март[а]?|апрел[ья]|ма[йя]|июн[ья]|июл[ья]|август[а]?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])\\s+(\\d{4})(?:\\s+года)?");
     private static final Pattern RUSSIAN_TIME_RANGE_PATTERN = Pattern.compile(
@@ -169,6 +175,10 @@ public class CommandProcessorService {
         }
         if (preview.getType() == null || preview.getType() == VoiceCommandType.UNKNOWN) {
             preview = buildHeuristicVoicePreview(transcription).orElse(preview);
+        } else if (preview.getType() == VoiceCommandType.MEETING) {
+            MeetingRequestDTO meeting = preview.getMeeting();
+            buildHeuristicVoicePreview(transcription)
+                    .ifPresent(spoken -> correctMeetingFromSpeech(meeting, spoken.getMeeting()));
         }
         preview.setTranscription(transcription);
         String extractedEmail = extractEmailAddress(transcription);
@@ -179,6 +189,16 @@ public class CommandProcessorService {
                     .ifPresent(participant -> participant.setEmail(extractedEmail));
         }
         return preview;
+    }
+
+    // The model sometimes gets the date wrong or leaves out the title. A date and time read directly
+    // from what the user said are more reliable, so they take precedence.
+    private void correctMeetingFromSpeech(MeetingRequestDTO meeting, MeetingRequestDTO spoken) {
+        meeting.setStartTimestamp(spoken.getStartTimestamp());
+        meeting.setEndTimestamp(spoken.getEndTimestamp());
+        if (meeting.getTitle() == null || meeting.getTitle().isBlank()) {
+            meeting.setTitle(spoken.getTitle());
+        }
     }
 
     private Optional<VoiceCommandPreviewDTO> buildHeuristicVoicePreview(String transcription) {
@@ -306,6 +326,11 @@ public class CommandProcessorService {
             return Optional.of(today);
         }
 
+        Optional<LocalDate> calendarDate = resolveSwedishCalendarDate(normalized, today);
+        if (calendarDate.isPresent()) {
+            return calendarDate;
+        }
+
         for (Map.Entry<String, DayOfWeek> weekday : SWEDISH_WEEKDAYS.entrySet()) {
             if (normalized.contains(weekday.getKey())) {
                 return Optional.of(today.with(TemporalAdjusters.next(weekday.getValue())));
@@ -315,10 +340,34 @@ public class CommandProcessorService {
         return Optional.empty();
     }
 
+    // "den 11 november" or "11 november 2027". Without a year, a date that has passed means next year.
+    private Optional<LocalDate> resolveSwedishCalendarDate(String normalized, LocalDate today) {
+        Matcher matcher = SWEDISH_DATE_PATTERN.matcher(normalized);
+        if (!matcher.find()) {
+            return Optional.empty();
+        }
+
+        int day = Integer.parseInt(matcher.group(1));
+        int month = SWEDISH_MONTHS.indexOf(matcher.group(2)) + 1;
+        try {
+            if (matcher.group(3) != null) {
+                return Optional.of(LocalDate.of(Integer.parseInt(matcher.group(3)), month, day));
+            }
+            LocalDate date = LocalDate.of(today.getYear(), month, day);
+            return Optional.of(date.isBefore(today) ? date.plusYears(1) : date);
+        } catch (DateTimeException e) {
+            return Optional.empty();
+        }
+    }
+
     private Optional<LocalTime> resolveClockTime(String normalized) {
         Matcher matcher = CLOCK_TIME_PATTERN.matcher(normalized);
         if (!matcher.find()) {
-            return Optional.empty();
+            // Whisper often writes the time as "10.00" or "10:00" without "klockan".
+            Matcher numeric = NUMERIC_TIME_PATTERN.matcher(normalized);
+            return numeric.find()
+                    ? parseNumericTime(numeric.group(1), numeric.group(2))
+                    : Optional.empty();
         }
 
         OptionalInt hour = parseTimeToken(matcher.group(1));

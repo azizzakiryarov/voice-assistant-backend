@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -232,4 +233,68 @@ class OpenAIServiceTest {
                 OffsetDateTime.parse("2026-06-17T15:00:00+02:00"),
                 "Europe/Stockholm");
     }
+
+    @Test
+    void analyzeVoiceCommandKeepsMeetingWhenModelCopiesSchemaAlternatives() {
+        givenVoiceCommandResponse("""
+                {"type":"MEETING","todo":{"description":"Boka möte","dueDate":"2026-11-11|2026-11-11|null"},
+                 "meeting":{"title":"Möte med Anna","startTimestamp":"2026-11-11T10:00:00|null","endTimestamp":"null",
+                 "participants":[{"name":"Anna","email":"string|null"}]},"message":"string|null"}
+                """);
+
+        VoiceCommandPreviewDTO result = openAIService.analyzeVoiceCommand("boka ett möte med anna den 11 november 10.00");
+
+        assertThat(result.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(result.getTodo()).isNull();
+        assertThat(result.getMessage()).isNull();
+        assertThat(result.getMeeting().getStartTimestamp()).isEqualTo(LocalDateTime.of(2026, 11, 11, 10, 0));
+        assertThat(result.getMeeting().getEndTimestamp()).isEqualTo(LocalDateTime.of(2026, 11, 11, 11, 0));
+        assertThat(result.getMeeting().getParticipants().get(0).getEmail()).isNull();
+    }
+
+    @Test
+    void analyzeVoiceCommandRepairsMissingTypeMissingQuoteAndTrailingObject() {
+        givenVoiceCommandResponse("""
+                {"type":null,"todo":null,"meeting":{"title":"Möte med Anna",startTimestamp":"2026-11-11T10:00:00",                "endTimestamp":"2026-11-11T11:00:00"}}  {"type":"TODO","todo":{"description":"något annat"}}
+                """);
+
+        VoiceCommandPreviewDTO result = openAIService.analyzeVoiceCommand("boka ett möte med anna");
+
+        assertThat(result.getType()).isEqualTo(VoiceCommandType.MEETING);
+        assertThat(result.getMeeting().getTitle()).isEqualTo("Möte med Anna");
+        assertThat(result.getMeeting().getStartTimestamp()).isEqualTo(LocalDateTime.of(2026, 11, 11, 10, 0));
+    }
+
+    @Test
+    void analyzeVoiceCommandReturnsUnknownWhenMeetingHasNoStart() {
+        givenVoiceCommandResponse("""
+                {"type":"MEETING","meeting":{"title":"Möte med Anna den 11 november"},"message":null}
+                """);
+
+        VoiceCommandPreviewDTO result = openAIService.analyzeVoiceCommand("boka ett möte med anna");
+
+        assertThat(result.getType()).isEqualTo(VoiceCommandType.UNKNOWN);
+        assertThat(result.getMeeting()).isNull();
+    }
+
+    @Test
+    void analyzeVoiceCommandPromptShowsExamplesInsteadOfAlternatives() {
+        givenVoiceCommandResponse("{\"type\":\"UNKNOWN\"}");
+
+        openAIService.analyzeVoiceCommand("hej");
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(typeRequest).user(userPromptCaptor.capture());
+        assertThat(userPromptCaptor.getValue())
+                .doesNotContain("|null")
+                .contains("Example MEETING");
+    }
+
+    private void givenVoiceCommandResponse(String aiResponse) {
+        when(chatClient.prompt()).thenReturn(typeRequest);
+        when(typeRequest.user(anyString())).thenReturn(typeRequest);
+        when(typeRequest.call()).thenReturn(typeResponse);
+        when(typeResponse.content()).thenReturn(aiResponse);
+    }
+
 }
