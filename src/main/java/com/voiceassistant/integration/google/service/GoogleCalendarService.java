@@ -40,7 +40,11 @@ public class GoogleCalendarService {
 
     public void createEvent(Event event) throws IOException {
         Calendar calendarService = currentUserCalendarClient();
-        Event executed = calendarService.events().insert("primary", event).execute();
+        // Google sends no invitation unless asked, so guests would only see the event if they
+        // looked for it. "all" emails every guest; an event without guests sends nothing.
+        Event executed = calendarService.events().insert("primary", event)
+                .setSendUpdates("all")
+                .execute();
         // Titles and links can contain personal data, so only the id is logged.
         log.info("Google Calendar event created id={}", executed.getId());
     }
