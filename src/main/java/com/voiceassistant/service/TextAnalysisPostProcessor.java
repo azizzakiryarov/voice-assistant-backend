@@ -61,11 +61,21 @@ public class TextAnalysisPostProcessor {
                         .map(this::normalizeEvent)
                         .toList())), inputText);
 
-        List<TextAnalysisTodoDTO> todos = deduplicateTodos(safeList(response.todos()).stream()
-                .filter(todo -> hasText(todo.title()))
-                .map(todo -> normalizeTodo(todo, warnings))
-                .filter(todo -> !repeatsEvent(todo, events))
-                .toList());
+        // Warnings from normalizeTodo are kept only for todos that remain, not for dropped repeats.
+        List<TextAnalysisTodoDTO> todos = new ArrayList<>();
+        for (TextAnalysisTodoDTO todo : safeList(response.todos())) {
+            if (!hasText(todo.title())) {
+                continue;
+            }
+            List<TextAnalysisWarningDTO> todoWarnings = new ArrayList<>();
+            TextAnalysisTodoDTO normalizedTodo = normalizeTodo(todo, todoWarnings);
+            // Check the model's own deadline: normalizeTodo removes it for "as soon as possible".
+            if (!repeatsEvent(todo, events)) {
+                todos.add(normalizedTodo);
+                warnings.addAll(todoWarnings);
+            }
+        }
+        todos = deduplicateTodos(todos);
 
         events.forEach(event -> addDateWarnings(event, receivedAt, zone, inputText, warnings));
         todos.forEach(todo -> addDeadlineWarnings(todo, receivedAt, zone, inputText, warnings));
@@ -111,7 +121,7 @@ public class TextAnalysisPostProcessor {
     // A todo with the same title as an event, or a deadline at the moment an event starts, only repeats it.
     private boolean repeatsEvent(TextAnalysisTodoDTO todo, List<TextAnalysisEventDTO> events) {
         return events.stream().anyMatch(event -> sameTitle(todo.title(), event.title())
-                || (todo.deadline() != null && minuteKey(todo.deadline()).equals(minuteKey(event.startDateTime()))));
+                || (hasText(todo.deadline()) && minuteKey(todo.deadline().trim()).equals(minuteKey(event.startDateTime()))));
     }
 
     // When the text states exactly one duration and there is only one timed event, the duration sets
@@ -153,6 +163,13 @@ public class TextAnalysisPostProcessor {
         }
     }
 
+    // The model marks timed events as all-day, which hides the time in the review form. A start with
+    // a time other than midnight is never all-day.
+    private static boolean hasClockTime(String dateTime) {
+        return dateTime != null && dateTime.length() >= 16 && dateTime.charAt(10) == 'T'
+                && !dateTime.startsWith("00:00", 11);
+    }
+
     private static TextAnalysisEventDTO withEnd(TextAnalysisEventDTO event, String end) {
         return new TextAnalysisEventDTO(event.title(), event.description(), event.startDateTime(), end, event.allDay(),
                 event.location(), event.category(), event.urgency(), event.confidence(), event.requiresConfirmation(),
@@ -191,7 +208,7 @@ public class TextAnalysisPostProcessor {
                 blankToNull(event.description()),
                 blankToNull(event.startDateTime()),
                 blankToNull(event.endDateTime()),
-                Boolean.TRUE.equals(event.allDay()),
+                Boolean.TRUE.equals(event.allDay()) && !hasClockTime(event.startDateTime()),
                 blankToNull(event.location()),
                 event.category() == null ? ItemCategory.OTHER : event.category(),
                 event.urgency() == null ? Urgency.LOW : event.urgency(),
