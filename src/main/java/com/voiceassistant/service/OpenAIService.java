@@ -45,10 +45,6 @@ public class OpenAIService {
         MEETING
     }
 
-    // The model writes every field of every item, and output length decides the time on the Pi
-    // (about 4 tokens per second). The schema therefore leaves out what the post-processor sets
-    // itself (confidence, confirmation, warnings) and caps each list.
-    private static final int MAX_ITEMS_PER_TYPE = 3;
     private static final Map<String, Object> TEXT_ANALYSIS_JSON_SCHEMA = textAnalysisJsonSchema();
 
     // Tydliga instruktioner för AI
@@ -101,6 +97,8 @@ public class OpenAIService {
               "location":"string|null",
               "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
               "urgency":"CRITICAL|HIGH|MEDIUM|LOW",
+              "confidence":0.0,
+              "requiresConfirmation":true,
               "sourceText":"short exact supporting quote from the input"
             }
           ],
@@ -113,6 +111,8 @@ public class OpenAIService {
               "recurrence":{"frequency":"DAILY|WEEKLY|MONTHLY|YEARLY|CUSTOM","interval":1},
               "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
               "urgency":"CRITICAL|HIGH|MEDIUM|LOW",
+              "confidence":0.0,
+              "requiresConfirmation":true,
               "sourceText":"short exact supporting quote from the input"
             }
           ],
@@ -123,24 +123,27 @@ public class OpenAIService {
               "category":"SCHOOL|WORK|FAMILY|HEALTH|FINANCE|TRAVEL|AUTHORITY|MEETING|OTHER",
               "sourceText":"short exact supporting quote from the input"
             }
+          ],
+          "warnings":[
+            {"code":"string","message":"string","requiresUserAttention":true}
           ]
         }
 
         Regler:
         - Skilj mellan kalenderhändelser, uppgifter och ren information.
-        - Håll svaret kort och kompakt. Returnera högst 3 events, 3 todos och 3 informationalItems.
-        - Ta med varje sak en gång. Upprepa aldrig samma event, todo eller informationalItem.
-        - sourceText ska vara ett kort citat från input, max 80 tecken.
-        - description ska vara kort, max 100 tecken, eller null.
-        - recurrence ska vara null om saken inte upprepas.
+        - Håll svaret kort och kompakt. Returnera högst 6 events, 6 todos och 6 informationalItems.
+        - sourceText ska vara ett kort citat från input, max 120 tecken.
+        - description ska vara kort, max 180 tecken.
         - Skapa inte todo av reklam, signatur, hälsningsfraser eller kontaktuppgifter.
         - Dubbletter ska tas bort, även om samma information finns på svenska och engelska.
         - Hitta inte på datum, tider, platser eller deadlines.
-        - Om bara dag och månad anges, härled år från receivedAt och sammanhang.
+        - Om bara dag och månad anges, härled år från receivedAt och sammanhang; lägg till warning YEAR_INFERRED.
         - Om texten säger "så snart som möjligt", "as soon as possible" eller liknande: deadline null och deadlineType AS_SOON_AS_POSSIBLE.
         - Om texten säger "regelbundet" eller "regularly": markera som RECURRING och kräva bekräftelse.
+        - Markera datum som verkar ha passerat med warning DATE_IN_PAST eller DEADLINE_IN_PAST.
         - Allergier, specialkost, säkerhet och myndighetskrav ska normalt ha högre urgency.
         - Informationsposter ska inte bli todos om användaren inte behöver göra något.
+        - Alla event och todos ska ha requiresConfirmation true.
         """;
 
     public OpenAIService(ChatClient.Builder chatClient) {
@@ -382,13 +385,14 @@ public class OpenAIService {
         return Map.of(
                 "type", "object",
                 "additionalProperties", false,
-                "required", List.of("summary", "language", "events", "todos", "informationalItems"),
+                "required", List.of("summary", "language", "events", "todos", "informationalItems", "warnings"),
                 "properties", Map.of(
-                        "summary", Map.of("type", "string", "maxLength", 160),
+                        "summary", Map.of("type", "string", "maxLength", 240),
                         "language", Map.of("type", "string", "enum", List.of("sv", "en", "mixed", "unknown")),
-                        "events", arraySchema(eventSchema(), MAX_ITEMS_PER_TYPE),
-                        "todos", arraySchema(todoSchema(), MAX_ITEMS_PER_TYPE),
-                        "informationalItems", arraySchema(informationalItemSchema(), MAX_ITEMS_PER_TYPE)
+                        "events", arraySchema(eventSchema(), 6),
+                        "todos", arraySchema(todoSchema(), 6),
+                        "informationalItems", arraySchema(informationalItemSchema(), 6),
+                        "warnings", arraySchema(warningSchema(), 8)
                 )
         );
     }
@@ -398,17 +402,19 @@ public class OpenAIService {
                 "type", "object",
                 "additionalProperties", false,
                 "required", List.of("title", "description", "startDateTime", "endDateTime", "allDay", "location",
-                        "category", "urgency", "sourceText"),
+                        "category", "urgency", "confidence", "requiresConfirmation", "sourceText"),
                 "properties", Map.ofEntries(
                         Map.entry("title", stringSchema(120)),
-                        Map.entry("description", nullableStringSchema(100)),
+                        Map.entry("description", nullableStringSchema(180)),
                         Map.entry("startDateTime", stringSchema(40)),
                         Map.entry("endDateTime", nullableStringSchema(40)),
                         Map.entry("allDay", Map.of("type", "boolean")),
                         Map.entry("location", nullableStringSchema(160)),
                         Map.entry("category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER")),
                         Map.entry("urgency", enumSchema("CRITICAL", "HIGH", "MEDIUM", "LOW")),
-                        Map.entry("sourceText", stringSchema(80))
+                        Map.entry("confidence", Map.of("type", "number", "minimum", 0, "maximum", 1)),
+                        Map.entry("requiresConfirmation", Map.of("type", "boolean")),
+                        Map.entry("sourceText", stringSchema(120))
                 )
         );
     }
@@ -418,16 +424,18 @@ public class OpenAIService {
                 "type", "object",
                 "additionalProperties", false,
                 "required", List.of("title", "description", "deadline", "deadlineType", "recurrence", "category",
-                        "urgency", "sourceText"),
+                        "urgency", "confidence", "requiresConfirmation", "sourceText"),
                 "properties", Map.ofEntries(
                         Map.entry("title", stringSchema(120)),
-                        Map.entry("description", nullableStringSchema(100)),
+                        Map.entry("description", nullableStringSchema(180)),
                         Map.entry("deadline", nullableStringSchema(40)),
                         Map.entry("deadlineType", enumSchema("EXACT_DATE", "EXACT_DATE_TIME", "AS_SOON_AS_POSSIBLE", "EARLIEST_CONVENIENCE", "RECURRING", "NONE", "UNKNOWN")),
                         Map.entry("recurrence", nullableObjectSchema(recurrenceSchema())),
                         Map.entry("category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER")),
                         Map.entry("urgency", enumSchema("CRITICAL", "HIGH", "MEDIUM", "LOW")),
-                        Map.entry("sourceText", stringSchema(80))
+                        Map.entry("confidence", Map.of("type", "number", "minimum", 0, "maximum", 1)),
+                        Map.entry("requiresConfirmation", Map.of("type", "boolean")),
+                        Map.entry("sourceText", stringSchema(120))
                 )
         );
     }
@@ -451,9 +459,22 @@ public class OpenAIService {
                 "required", List.of("title", "description", "category", "sourceText"),
                 "properties", Map.of(
                         "title", stringSchema(120),
-                        "description", nullableStringSchema(100),
+                        "description", nullableStringSchema(180),
                         "category", enumSchema("SCHOOL", "WORK", "FAMILY", "HEALTH", "FINANCE", "TRAVEL", "AUTHORITY", "MEETING", "OTHER"),
-                        "sourceText", stringSchema(80)
+                        "sourceText", stringSchema(120)
+                )
+        );
+    }
+
+    private static Map<String, Object> warningSchema() {
+        return Map.of(
+                "type", "object",
+                "additionalProperties", false,
+                "required", List.of("code", "message", "requiresUserAttention"),
+                "properties", Map.of(
+                        "code", stringSchema(80),
+                        "message", stringSchema(180),
+                        "requiresUserAttention", Map.of("type", "boolean")
                 )
         );
     }
