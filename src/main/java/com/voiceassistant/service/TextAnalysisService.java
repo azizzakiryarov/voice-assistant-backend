@@ -95,7 +95,7 @@ public class TextAnalysisService {
         TextAnalysisResponseDTO heuristicResponse = heuristicExtractor.extract(normalizedRequest);
         boolean authoritativeHeuristics = isAuthoritativeSchoolEmailExtraction(heuristicResponse);
         if (authoritativeHeuristics) {
-            TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(heuristicResponse, normalizedRequest.receivedAt(), zone);
+            TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(heuristicResponse, normalizedRequest.receivedAt(), zone, normalizedRequest.text());
             long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
             log.info(
                     "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={} llmSkipped={}",
@@ -111,9 +111,10 @@ public class TextAnalysisService {
             return normalizedResponse;
         }
 
-        TextAnalysisResponseDTO llmResponse = openAIService.analyzeText(llmRequest);
+        TextAnalysisResponseDTO llmResponse = withoutWarnings(openAIService.analyzeText(llmRequest));
         TextAnalysisResponseDTO mergedResponse = mergeResponses(heuristicResponse, llmResponse);
-        TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(mergedResponse, normalizedRequest.receivedAt(), zone);
+        TextAnalysisResponseDTO normalizedResponse = postProcessor.normalize(
+                mergedResponse, normalizedRequest.receivedAt(), zone, normalizedRequest.text());
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         log.info(
                 "Completed text analysis durationMs={} events={} todos={} informationalItems={} warnings={} heuristicEvents={} heuristicTodos={} authoritativeHeuristics={} llmSkipped={}",
@@ -189,6 +190,21 @@ public class TextAnalysisService {
                 mergeLists(primary.todos(), secondary.todos()),
                 mergeLists(primary.informationalItems(), secondary.informationalItems()),
                 mergeLists(primary.warnings(), secondary.warnings()));
+    }
+
+    // The model invents warning codes and messages ("WARNING: Vad är det här du ska göra?"). The
+    // post-processor computes the real warnings (year, past dates, missing deadlines) from the data.
+    private TextAnalysisResponseDTO withoutWarnings(TextAnalysisResponseDTO response) {
+        if (response == null) {
+            return null;
+        }
+        return new TextAnalysisResponseDTO(
+                response.summary(),
+                response.language(),
+                response.events(),
+                response.todos(),
+                response.informationalItems(),
+                List.of());
     }
 
     private boolean isAuthoritativeSchoolEmailExtraction(TextAnalysisResponseDTO response) {
