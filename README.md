@@ -15,6 +15,30 @@ som du kan ändra innan du godkänner. Godkända uppgifter speglas mot Google Ta
 Google Calendar. Tal, text och bilder tolkas lokalt på servern och skickas aldrig till en extern
 AI-tjänst.
 
+## Använda appen
+
+1. **Logga in.** Öppna <https://voice-assistant.duckdns.org> och klicka på *Logga in med Google*.
+   Godkänn att appen får använda Google Tasks och Google Calendar. Eftersom appen inte är
+   verifierad av Google visas först en varning: klicka på *Avancerat* och sedan *Fortsätt*.
+2. **Lägg till något på ett av tre sätt:**
+   - **Röst:** välj språk (SV, RU, EN eller Auto), klicka på mikrofonen, säg till exempel "boka ett
+     möte med Anna i morgon klockan 10" och klicka igen för att sluta. Efter en stund visas *Granska
+     röstkommando* med transkriberingen och förslaget.
+   - **Text:** klistra in ett mejl eller en text under *Analysera text* och klicka på *Analysera text*.
+   - **Foto:** välj en bild av en blankett eller lapp under *Skanna formulär* och klicka på
+     *Analysera bild*. Under *Visa OCR-text* ser du vad som lästes från bilden.
+3. **Granska.** Ändra rubrik, datum, tid, kategori och beskrivning. Bocka ur förslag du inte vill ha
+   och kryssa i *Heldag* för händelser utan klockslag. Läs varningarna, till exempel om ett årtal har
+   gissats eller ett datum redan har passerat.
+4. **Godkänn.** Först nu skapas något. Händelser hamnar i Google Calendar och uppgifter i appens
+   lista och i Google Tasks. *Avbryt* skapar ingenting.
+5. **Hantera uppgifter.** Lägg till en uppgift direkt i listan, bocka av den som klar eller radera
+   den. Ändringen skickas till Google Tasks direkt. Klicka på *Synka Google Tasks* för att hämta det
+   du har ändrat i Google.
+
+Ett röstkommando tar upp till en minut. Text och foton tolkas av en liten modell på servern och tar
+oftast 2–10 minuter. Låt sidan vara öppen under tiden.
+
 ## Kom igång
 
 Instruktionen gäller macOS. Produktion körs på en Raspberry Pi med Kubernetes, se
@@ -76,7 +100,8 @@ npm ci
 npm run dev
 ```
 
-Öppna <http://localhost:5173>. Tester körs med `./mvnw test`. Mer om lokal drift finns i
+Öppna <http://localhost:5173>. Enhetstester körs med `./mvnw test`. End-to-end-tester med Playwright
+finns i [frontend-repot](https://github.com/azizzakiryarov/voice-assistent-frontend#end-to-end-tester). Mer om lokal drift finns i
 [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md).
 
 ## Arkitektur
@@ -119,11 +144,15 @@ voice-assistant-backend/
   har ännu inte verifierat den, så inloggningen visar en varning (klicka *Avancerat → Fortsätt*), och
   högst 100 konton kan använda den tills verifieringen är klar.
 - **Synk från Google sker manuellt:** ändringar i Google Tasks syns i appen först när du klickar på
-  "Synka med Google". Appen skickar sina ändringar direkt.
+  *Synka Google Tasks*. Appen skickar sina ändringar direkt.
 - **Utgången Google-token:** access-token förnyas inte, så synken kan sluta fungera efter ungefär en
   timme. Logga ut och in igen.
-- **Långsam tolkning:** en liten lokal modell på en Raspberry Pi gör att ett röstkommando kan ta en
-  minut och att förslagen ibland blir fel. Därför granskar du alltid innan något sparas.
+- **Långsam tolkning:** en liten lokal modell (`llama3.2:1b`) på en Raspberry Pi skriver ungefär fyra
+  tokens per sekund. Ett röstkommando tar upp till en minut och en text eller ett foto oftast 2–10
+  minuter. Modellen hittar ibland på eller upprepar förslag, och därför granskar du alltid innan
+  något sparas.
+- **Skanning kräver att sidan är öppen:** formulärskanningen är ett enda långt anrop. Laddar du om
+  sidan eller tappar anslutningen under tiden försvinner resultatet, och du får skanna igen.
 - **Språk:** röstkommandon är testade på svenska och ryska.
 - **En server:** allt körs på en Raspberry Pi utan redundans. Databasen säkerhetskopieras med restic.
 
