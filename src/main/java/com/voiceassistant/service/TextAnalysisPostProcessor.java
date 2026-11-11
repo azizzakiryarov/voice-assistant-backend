@@ -114,12 +114,13 @@ public class TextAnalysisPostProcessor {
                 || (todo.deadline() != null && minuteKey(todo.deadline()).equals(minuteKey(event.startDateTime()))));
     }
 
-    // Sets the end of the only timed event without one when the text states exactly one duration.
+    // When the text states exactly one duration and there is only one timed event, the duration sets
+    // its end. It also replaces the model's own end time, which is often a guess (13:00 for 90 minutes).
     private List<TextAnalysisEventDTO> fillEndFromDuration(List<TextAnalysisEventDTO> events, String inputText) {
-        List<TextAnalysisEventDTO> missingEnd = events.stream()
-                .filter(event -> event.endDateTime() == null && !event.allDay() && event.startDateTime().contains("T"))
+        List<TextAnalysisEventDTO> timed = events.stream()
+                .filter(event -> !event.allDay() && event.startDateTime().contains("T"))
                 .toList();
-        if (missingEnd.size() != 1 || inputText == null) {
+        if (timed.size() != 1 || inputText == null) {
             return events;
         }
         Matcher matcher = DURATION_PATTERN.matcher(inputText);
@@ -132,7 +133,7 @@ public class TextAnalysisPostProcessor {
             return events;
         }
 
-        TextAnalysisEventDTO target = missingEnd.getFirst();
+        TextAnalysisEventDTO target = timed.getFirst();
         String end = plusMinutes(target.startDateTime(), minutes);
         if (end == null) {
             return events;

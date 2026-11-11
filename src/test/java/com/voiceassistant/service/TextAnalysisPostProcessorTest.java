@@ -187,6 +187,25 @@ class TextAnalysisPostProcessorTest {
     }
 
     @Test
+    void durationInTextReplacesEndTimeGuessedByModel() {
+        TextAnalysisResponseDTO response = new TextAnalysisResponseDTO(
+                "Bokning",
+                "sv",
+                List.of(gymEvent("Sparring", null, "2026-11-21T13:00:00+01:00", null, "Tidpunkt för passet")),
+                List.of(),
+                List.of(),
+                List.of());
+
+        TextAnalysisResponseDTO normalized = postProcessor.normalize(
+                response,
+                OffsetDateTime.parse("2026-11-11T08:00:00+01:00"),
+                ZoneId.of("Europe/Stockholm"),
+                GYM_BOOKING);
+
+        assertThat(normalized.events().getFirst().endDateTime()).isEqualTo("2026-11-21T13:30:00+01:00");
+    }
+
+    @Test
     void leavesEndEmptyWhenTextHasSeveralDurations() {
         TextAnalysisResponseDTO response = new TextAnalysisResponseDTO(
                 "Bokning",
