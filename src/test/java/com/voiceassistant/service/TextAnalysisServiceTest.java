@@ -104,6 +104,41 @@ class TextAnalysisServiceTest {
     }
 
     @Test
+    void analyzeReplacesWarningsInventedByTheModel() {
+        TextAnalysisRequestDTO request = new TextAnalysisRequestDTO(
+                "Bokning",
+                "Tidpunkt för passet: 2026-11-07 12:00",
+                SourceType.EMAIL,
+                OffsetDateTime.parse("2026-11-11T08:00:00+01:00"),
+                "Europe/Stockholm");
+
+        when(openAIService.analyzeText(any())).thenReturn(new TextAnalysisResponseDTO(
+                "Bokning",
+                "sv",
+                List.of(new TextAnalysisEventDTO(
+                        "Sparring",
+                        null,
+                        "2026-11-07T12:00:00+01:00",
+                        "2026-11-07T13:30:00+01:00",
+                        false,
+                        null,
+                        ItemCategory.HEALTH,
+                        Urgency.LOW,
+                        0.9,
+                        true,
+                        "Sparring all levels")),
+                List.of(),
+                List.of(),
+                List.of(
+                        new TextAnalysisWarningDTO("WARNING", "Vad är det här du ska göra?", true),
+                        new TextAnalysisWarningDTO("YEAR_INFERRED", "Året är gissat", true))));
+
+        TextAnalysisResponseDTO response = service.analyze(request);
+
+        assertThat(response.warnings()).extracting(TextAnalysisWarningDTO::code).containsExactly("DATE_IN_PAST");
+    }
+
+    @Test
     void analyzeSendsReducedInputToLlmForLongBilingualText() throws IOException {
         String email = loadEmailFixture()
                 .replace("Modersmål", "Språkval")

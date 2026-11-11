@@ -128,4 +128,91 @@ class TextAnalysisPostProcessorTest {
 
         assertThat(normalized.informationalItems()).hasSize(1);
     }
+
+    private static final String GYM_BOOKING = """
+            Detaljer kring bokning:
+            Namn på passet: Sparring all levels: thaiboxing/boxing/striking
+            Tidpunkt för passet: 2026-11-21 12:00
+            Längd på passet: 90 minuter
+            """;
+
+    @Test
+    void collapsesRepeatedEventAndDropsTodosAndInformationThatOnlyRepeatIt() {
+        String title = "Sparring All levels: thaiboxing/boxing/striking";
+        TextAnalysisResponseDTO response = new TextAnalysisResponseDTO(
+                "Bokning",
+                "sv",
+                List.of(
+                        gymEvent(title, "Sparringpass", null, "Allstars Training Center AB", "Tidpunkt för passet"),
+                        gymEvent(title, "Fullkontakt", null, null, "Sparring All levels är ett renodlat sparringpass"),
+                        gymEvent(title, null, null, "Allstars", "Namn på passet")),
+                List.of(
+                        gymTodo(title, "2026-11-21T12:00:00+01:00"),
+                        gymTodo("Bokning", "2026-11-21T12:00:00+01:00")),
+                List.of(
+                        new TextAnalysisInformationalItemDTO(title, null, ItemCategory.OTHER, "Namn på passet"),
+                        new TextAnalysisInformationalItemDTO("Sparring All levels", null, ItemCategory.OTHER, "Namn på passet")),
+                List.of());
+
+        TextAnalysisResponseDTO normalized = postProcessor.normalize(
+                response,
+                OffsetDateTime.parse("2026-11-11T08:00:00+01:00"),
+                ZoneId.of("Europe/Stockholm"),
+                GYM_BOOKING);
+
+        assertThat(normalized.events()).hasSize(1);
+        assertThat(normalized.events().getFirst().location()).isEqualTo("Allstars Training Center AB");
+        assertThat(normalized.todos()).isEmpty();
+        assertThat(normalized.informationalItems()).isEmpty();
+    }
+
+    @Test
+    void readsEndTimeFromDurationAndDoesNotWarnAboutYearStatedInText() {
+        TextAnalysisResponseDTO response = new TextAnalysisResponseDTO(
+                "Bokning",
+                "sv",
+                List.of(gymEvent("Sparring", null, null, null, "Tidpunkt för passet")),
+                List.of(),
+                List.of(),
+                List.of());
+
+        TextAnalysisResponseDTO normalized = postProcessor.normalize(
+                response,
+                OffsetDateTime.parse("2026-11-11T08:00:00+01:00"),
+                ZoneId.of("Europe/Stockholm"),
+                GYM_BOOKING);
+
+        assertThat(normalized.events().getFirst().endDateTime()).isEqualTo("2026-11-21T13:30:00+01:00");
+        assertThat(normalized.warnings()).extracting(TextAnalysisWarningDTO::code).doesNotContain("YEAR_INFERRED");
+    }
+
+    @Test
+    void leavesEndEmptyWhenTextHasSeveralDurations() {
+        TextAnalysisResponseDTO response = new TextAnalysisResponseDTO(
+                "Bokning",
+                "sv",
+                List.of(gymEvent("Sparring", null, null, null, "Tidpunkt för passet")),
+                List.of(),
+                List.of(),
+                List.of());
+
+        TextAnalysisResponseDTO normalized = postProcessor.normalize(
+                response,
+                OffsetDateTime.parse("2026-11-11T08:00:00+01:00"),
+                ZoneId.of("Europe/Stockholm"),
+                GYM_BOOKING + "Uppvärmning 15 minuter.");
+
+        assertThat(normalized.events().getFirst().endDateTime()).isNull();
+    }
+
+    private TextAnalysisEventDTO gymEvent(String title, String description, String end, String location, String source) {
+        return new TextAnalysisEventDTO(title, description, "2026-11-21T12:00:00+01:00", end, false, location,
+                ItemCategory.HEALTH, Urgency.LOW, 0.9, true, source);
+    }
+
+    private TextAnalysisTodoDTO gymTodo(String title, String deadline) {
+        return new TextAnalysisTodoDTO(title, null, deadline, DeadlineType.EXACT_DATE_TIME, null,
+                ItemCategory.HEALTH, Urgency.LOW, 0.9, true, "Tidpunkt för passet");
+    }
+
 }
